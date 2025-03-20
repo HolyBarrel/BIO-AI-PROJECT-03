@@ -12,7 +12,7 @@ def train_xgb(df, feature_columns):
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    model = xgb.XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+    model = xgb.XGBClassifier(eval_metric='logloss')
     model.fit(X_train, y_train)
     
     y_pred = model.predict(X_test)
@@ -22,7 +22,7 @@ def train_xgb(df, feature_columns):
 
 def feature_selection_experiment(df):
     """Tests all feature combinations and logs their accuracy."""
-    feature_names = ['At1', 'At2']
+    feature_names = [col for col in df.columns if col != 'target']
     combinations = list(product([0, 1], repeat=len(feature_names)))
     
     results = []
@@ -32,9 +32,10 @@ def feature_selection_experiment(df):
             continue  # Skip empty feature selection
         
         acc = train_xgb(df, selected_features)
-        results.append((combo[0], combo[1], acc))
+        results.append(tuple(combo) + (acc,))
     
-    results_df = pd.DataFrame(results, columns=['At1', 'At2', 'Fit'])
+    columns = feature_names + ['Fit']
+    results_df = pd.DataFrame(results, columns=columns)
     print("\nFeature Selection Results:")
     print(results_df)
     return results_df

@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
@@ -36,7 +37,7 @@ def train_xgb(df, feature_columns, use_gpu=False):
     
     return acc
 
-def feature_selection_experiment(df, target_column='target', ignored_features=[], print_per=1000, use_gpu=False, show_lookup=True, show_best=True):
+def feature_selection_experiment(df, target_column='target', ignored_features=[], print_per=1000, use_gpu=False, show_lookup=True, show_best=True, save_to_csv=False, output_csv_path='output/results.csv'):
     """Tests all feature combinations and logs their accuracy, printing progress at every `print_per` steps."""
     feature_names = [col for col in df.columns if col != target_column and col not in ignored_features]
     combinations = list(product([0, 1], repeat=len(feature_names)))
@@ -68,23 +69,37 @@ def feature_selection_experiment(df, target_column='target', ignored_features=[]
     results_df = pd.DataFrame(results, columns=columns)
 
     # Print the best combination and its fitness score
-    if(show_lookup):
+    if show_lookup:
         print("\nFeature Selection Results:")
         print(results_df)
-    if(show_best):
+    if show_best:
         print("\nBest Feature Set and Accuracy:")
         print(f"Best Features: {best_combination}")
         print(f"Accuracy: {best_accuracy}")
 
+    # Save to CSV if requested
+    if save_to_csv:
+        results_df.to_csv(output_csv_path, index=False)
+        print(f"\nResults saved to {output_csv_path}")
+
     return results_df
+
+def create_lookup_table(df_file_name, csv_output_name):
+    # Input path
+    file_path = "preprocessing/data/" + df_file_name + ".tsv"
+
+    # Output path
+    output_file = "preprocessing/output/" + csv_output_name 
+    if not os.path.exists("preprocessing/output/"):
+        os.makedirs("preprocessing/output/")
+
+    # Run algorithm and make lookup table as csv file
+    df = pd.read_csv(file_path, sep='\t')
+    feature_selection_experiment(df, ignored_features=['wine_type'], print_per=100, use_gpu=False, save_to_csv=True, output_csv_path=output_file)
 
 if __name__ == "__main__":
     # breast_cancer_wisconsin_original
     # wine_quality_combined
     # banana
-    file_root = "preprocessing/data/"
-    file_name = "wine_quality_combined"
-    file_path = file_root + file_name + ".tsv"
-    df = pd.read_csv(file_path, sep='\t')
-    
-    feature_selection_experiment(df, ignored_features=['wine_type'], print_per=100, use_gpu=False)
+    file = "wine_quality_combined"
+    create_lookup_table(df_file_name=file, csv_output_name=file)

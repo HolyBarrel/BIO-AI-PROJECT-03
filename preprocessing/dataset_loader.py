@@ -27,7 +27,6 @@ def train_xgb(df, feature_columns, use_gpu=False):
 
     # Set the device parameter instead of gpu_id
     if use_gpu:
-        #params['tree_method'] = 'gpu_hist'
         params['device'] = 'cuda:0'
 
     model = xgb.train(params, dtrain)
@@ -69,8 +68,8 @@ if __name__ == "__main__":
     # wine_quality_combined
     # banana
     file_root = "preprocessing/data/"
-    file_name = "wine_quality_combined"
+    file_name = "breast_cancer_wisconsin_original"
     file_path = file_root + file_name + ".tsv"
     df = pd.read_csv(file_path, sep='\t')
     
-    feature_selection_experiment(df, ignored_features=['wine_type'], print_per=100, use_gpu=True)
+    feature_selection_experiment(df, ignored_features=['wine_type'], print_per=100, use_gpu=False)

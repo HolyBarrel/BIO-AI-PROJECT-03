@@ -40,6 +40,11 @@ def feature_selection_experiment(df, target_column='target', ignored_features=[]
     return results_df
 
 if __name__ == "__main__":
-    file_path = "preprocessing/data/wine_quality_combined.tsv"
+    # breast_cancer_wisconsin_original
+    # wine_quality_combined
+    # banana
+    file_root = "preprocessing/data/"
+    file_name = "banana"
+    file_path = file_root + file_name + ".tsv"
     df = pd.read_csv(file_path, sep='\t')
     feature_selection_experiment(df, ignored_features=['wine_type'])

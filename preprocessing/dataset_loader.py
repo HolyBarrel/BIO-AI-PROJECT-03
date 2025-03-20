@@ -8,10 +8,17 @@ def train_xgb(df, feature_columns):
     """Trains an XGBoost classifier on the given feature set."""
     X = df[feature_columns]
     y = df['target']
-    
+
+    # Ensure class labels start from 0
+    y = y - y.min()  
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    model = xgb.XGBClassifier(eval_metric='logloss')
+    model = xgb.XGBClassifier(
+        eval_metric='logloss', 
+        objective='multi:softmax', 
+        num_class=len(y.unique())
+    )
     model.fit(X_train, y_train)
     
     y_pred = model.predict(X_test)

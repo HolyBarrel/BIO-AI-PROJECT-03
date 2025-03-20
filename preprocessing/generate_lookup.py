@@ -16,6 +16,8 @@ if __name__ == "__main__":
         ignored_features=['wine_type'], 
         print_per=100, 
         use_gpu=False, 
+        show_lookup=False, 
+        show_best=True,
         save_to_csv=True, 
         output_location='preprocessing/output'
     )

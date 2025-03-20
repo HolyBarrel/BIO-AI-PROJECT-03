@@ -40,6 +40,6 @@ def feature_selection_experiment(df):
     return results_df
 
 if __name__ == "__main__":
-    file_path = "data/banana.tsv"
+    file_path = "venv/data/banana.tsv"
     df = pd.read_csv(file_path, sep='\t')
     feature_selection_experiment(df)

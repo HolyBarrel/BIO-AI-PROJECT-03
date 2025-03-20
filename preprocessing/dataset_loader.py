@@ -19,9 +19,9 @@ def train_xgb(df, feature_columns):
     
     return acc
 
-def feature_selection_experiment(df):
+def feature_selection_experiment(df, target_column='target', ignored_features=[]):
     """Tests all feature combinations and logs their accuracy."""
-    feature_names = [col for col in df.columns if col != 'target']
+    feature_names = [col for col in df.columns if col != target_column and col not in ignored_features]
     combinations = list(product([0, 1], repeat=len(feature_names)))
     
     results = []
@@ -40,6 +40,6 @@ def feature_selection_experiment(df):
     return results_df
 
 if __name__ == "__main__":
-    file_path = "preprocessing/data/banana.tsv"
+    file_path = "preprocessing/data/wine_quality_combined.tsv"
     df = pd.read_csv(file_path, sep='\t')
-    feature_selection_experiment(df)
+    feature_selection_experiment(df, ignored_features=['wine_type'])

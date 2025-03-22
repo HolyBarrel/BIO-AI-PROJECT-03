@@ -83,7 +83,7 @@ class FeatureSelectionXGB:
                 continue  # Skip empty feature selection
             
             acc = self.train_xgb(selected_features)
-            results.append(tuple(combo) + (acc,))
+            results.append(tuple(combo) + ((1-acc),))
 
             # Update the best combination if the current accuracy is higher
             if acc > best_accuracy:
@@ -95,7 +95,7 @@ class FeatureSelectionXGB:
                 percent_done = (i + 1) / total_combinations * 100
                 print(f"Processed {i+1}/{total_combinations} combinations ({percent_done:.2f}% done)")
 
-        columns = feature_names + ['Fit']
+        columns = feature_names + ['Loss']
         results_df = pd.DataFrame(results, columns=columns)
 
         # Print the best combination and its fitness score
@@ -105,7 +105,8 @@ class FeatureSelectionXGB:
         if self.show_best:
             print("\nBest Feature Set and Accuracy:")
             print(f"Best Features: {best_combination}")
-            print(f"Accuracy: {best_accuracy}")
+            print(f"Accuracy:      {best_accuracy:.4f}")
+            print(f"Los (1-a):     {1-best_accuracy:.4f}")
 
         # Save to CSV if requested
         if self.save_to_csv:

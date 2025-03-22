@@ -1,10 +1,14 @@
 from util.xgb_feature_selector import FeatureSelectionXGB
 
 # ---------- Example run ---------- 
-# You can currently use:
-#   file = breast_cancer_wisconsin_original
-#   file = wine_quality_combined
-#   file = banana
+"""
+You can currently use:
+file = "1595_poker"
+file = "titanic"
+file = "breast_cancer_wisconsin_original"
+file = "wine_quality_combined"
+file = "banana"
+"""
 
 if __name__ == "__main__":
     file = "wine_quality_combined"

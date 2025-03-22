@@ -21,7 +21,7 @@ class FeatureSelectionXGB:
         self.output_location = output_location
 
         # Load the dataset
-        self.df = pd.read_csv(f"preprocessing/data/{self.df_file_name}.tsv", sep='\t')
+        self.df = pd.read_csv(f"XGB-Feature-Selection/data/{self.df_file_name}.tsv", sep='\t')
 
     def train_xgb(self, feature_columns):
         """Trains an XGBoost classifier on the given feature set."""

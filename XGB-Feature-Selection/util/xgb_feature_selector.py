@@ -55,6 +55,17 @@ class FeatureSelectionXGB:
         acc = accuracy_score(y_test, y_pred)
         
         return acc
+    
+    def save_results_to_csv(self, results_df):
+        # Create output folders
+        if not os.path.exists(self.output_location):
+            os.makedirs(self.output_location)
+
+        # Save file to output folder
+        results_df.to_csv(self.output_location + "/" + self.df_file_name, index=False)
+        print(f"\nResults saved to {self.output_location}")
+
+
 
     def feature_selection_experiment(self):
         """Tests all feature combinations and logs their accuracy, printing progress at every `print_per` steps."""
@@ -98,12 +109,6 @@ class FeatureSelectionXGB:
 
         # Save to CSV if requested
         if self.save_to_csv:
-            # Create output folders
-            if not os.path.exists(self.output_location):
-                os.makedirs(self.output_location)
-
-            # Save file to output folder
-            results_df.to_csv(self.output_location + "/" + self.df_file_name, index=False)
-            print(f"\nResults saved to {self.output_location}")
+            self.save_results_to_csv(results_df)
 
         return results_df

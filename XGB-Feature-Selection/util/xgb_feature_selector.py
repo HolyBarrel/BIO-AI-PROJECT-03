@@ -6,13 +6,14 @@ from sklearn.metrics import accuracy_score
 from itertools import product
 
 class FeatureSelectionXGB:
-    def __init__(self, df_file_name, target_column='target', ignored_features=[], use_gpu=False, print_per=1000, show_lookup=True, show_best=True, save_to_csv=False, output_location='output'):
+    def __init__(self, df_file_name, target_column='target', ignored_features=[], test_size=0.2, use_gpu=False, print_per=1000, show_lookup=True, show_best=True, save_to_csv=False, output_location='output'):
         """
         Initializes the class with the dataframe and parameters for feature selection experiment.
         """
         self.df_file_name = df_file_name
         self.target_column = target_column
         self.ignored_features = ignored_features
+        self.test_size = test_size
         self.use_gpu = use_gpu
         self.print_per = print_per
         self.show_lookup = show_lookup
@@ -31,7 +32,7 @@ class FeatureSelectionXGB:
         # Ensure class labels start from 0
         y = y - y.min()
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=self.test_size, random_state=42)
         
         # Convert data to DMatrix (recommended by XGBoost)
         dtrain = xgb.DMatrix(X_train, label=y_train)

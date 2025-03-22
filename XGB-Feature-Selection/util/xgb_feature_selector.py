@@ -106,7 +106,7 @@ class FeatureSelectionXGB:
             print("\nBest Feature Set and Accuracy:")
             print(f"Best Features: {best_combination}")
             print(f"Accuracy:      {best_accuracy:.4f}")
-            print(f"Los (1-a):     {1-best_accuracy:.4f}")
+            print(f"Losw (1-a):    {1-best_accuracy:.4f}")
 
         # Save to CSV if requested
         if self.save_to_csv:

@@ -1,11 +1,6 @@
 use crate::algorithms::pso::structs::particle::Particle; // Import particle struct
 pub use crate::structs::combination::Combination; // Import combination struct
-
-#[derive(Debug, Clone, Copy)]
-pub enum UpdateMode {
-    Global,
-    KNeighbor(usize),
-}
+pub use crate::algorithms::pso::structs::swarm::UpdateMode; // Import update mode enum
 
 #[derive(Debug, Clone)]
 pub struct Swarm {

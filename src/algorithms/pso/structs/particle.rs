@@ -43,7 +43,7 @@ impl Particle {
     /// w: Inertia weight
     /// c1: Cognitive weight
     /// c2: Social weight 
-    pub fn update(&mut self, global_best_position: &Vec<bool>, w: f64, c1: f64, c2: f64) {
+    pub fn update_pos(&mut self, global_best_position: &Vec<bool>, w: f64, c1: f64, c2: f64) {
         
         for i in 0..self.velocity.len() {
             let r1 = rand::random::<f64>();
@@ -64,7 +64,7 @@ impl Particle {
     /// 
     /// epsilon: represents the weight of the penalty for the number of features used
     /// combinations: lookup table for the possible combinations and their losses
-    pub fn estimate_fitness(&mut self, epsilon: f64, combinations: Vec<Combination>) -> f64 {
+    pub fn update_loss(&mut self, epsilon: f64, combinations: &Vec<Combination>) {
         let x = self.position.iter().map(|&x| x as i32 as f64).collect::<Vec<f64>>();
         
         // Set T to the Loss of the combination matching current position
@@ -75,6 +75,11 @@ impl Particle {
 
         // Rerturn h_e * T(x) + epsilon * h_p(x)
         let fit: f64 = h_eT + epsilon * h_p;
-        return fit
+        
+        self.loss = fit; // Update the loss of the particle
+        if fit < self.best_loss {
+            self.best_loss = fit; // Update the best loss of the particle
+            self.best_position = self.position.clone(); // Update the best position of the particle
+        }
     }
 }

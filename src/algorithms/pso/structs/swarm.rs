@@ -1,4 +1,5 @@
 use crate::algorithms::pso::structs::particle::Particle; // Import particle struct
+pub use crate::structs::combination::Combination; // Import combination struct
 
 #[derive(Debug, Clone)]
 pub struct Swarm {
@@ -42,9 +43,17 @@ impl Swarm {
     }
 
     // Update the particles in the swarm
-    pub fn update_particles(&mut self, w: f64, c1: f64, c2: f64) {
+    pub fn update_particles(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>) {
         for particle in &mut self.particles {
-            particle.update(&self.best_position, w, c1, c2);
+            particle.update_pos(&self.best_position, w, c1, c2);
+            // Update the particle's loss based on its position
+            particle.update_loss(epsilon, combinations);
         }
+    }
+
+    // Take a step in the swarm
+    pub fn step(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>) {
+        self.update_particles(w, c1, c2, epsilon, combinations);
+        self.update_global_best();
     }
 }

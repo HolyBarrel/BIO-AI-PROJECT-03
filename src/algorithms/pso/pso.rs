@@ -1,5 +1,6 @@
 pub use crate::algorithms::pso::structs::swarm::Swarm;
 pub use crate::structs::combination::Combination;
+pub use crate::algorithms::pso::structs::pso_mode::UpdateMode;
 pub use crate::utils::read_data::read_data;
 
 pub fn init(dataset: &str) {
@@ -15,10 +16,11 @@ pub fn init(dataset: &str) {
     let w = 0.8; // Inertia weight
     let c1 = 0.1; // Cognitive weight
     let c2 = 0.1; // Social weight
-    let epsilon = 0.01; // Small value to avoid division by zero
-    let epochs = 1000;
+    let epsilon = 0.1; // Epsilon for convergence
+    let epochs = 1000; // Number of epochs
+    let k = 3; // Number of neighbors to consider
 
-    let mut swarm = Swarm::new(swarm_size, particle_size);
+    let mut swarm = Swarm::new(swarm_size, particle_size, UpdateMode::Global);
     println!("Swarm initialized with {} particles of size {}", swarm_size, particle_size);
 
     // Main loop for PSO

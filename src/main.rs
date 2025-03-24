@@ -1,8 +1,9 @@
 mod utils;
 mod structs;
+mod algorithms;
+use crate::algorithms::pso::pso::init; // Import the hello function from pso module
 
 fn main() {
-    let file_path = "XGB-Feature-Selection/output/titanic";
-    let combinations = utils::read_data::read_data(file_path).unwrap();
-    println!("{:?}", combinations);
+    // Call the hello function from pso.rs
+    init();
 }

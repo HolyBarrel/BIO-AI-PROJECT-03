@@ -1,3 +1,3 @@
-pub fn hello() {
-    println!("Hello from moo.rs");
+pub fn init() {
+    println!("Hello from PSO.rs");
 }

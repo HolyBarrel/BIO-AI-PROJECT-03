@@ -34,4 +34,26 @@ impl Particle {
         println!("Best Position: {:?}", self.best_position);
         println!("Best Loss: {:?}", self.best_loss);
     }
+
+    pub fn update(&mut self, global_best_position: &Vec<bool>, w: f64, c1: f64, c2: f64) {
+        /// Updates velocity of a Particle
+        /// 
+        /// global_best_position: Global best position
+        /// w: Inertia weight
+        /// c1: Cognitive weight
+        /// c2: Social weight 
+        for i in 0..self.velocity.len() {
+            let r1 = rand::random::<f64>();
+            let r2 = rand::random::<f64>();
+
+            let cognitive_component = c1 * r1 * (self.best_position[i] as i32 as f64 - self.position[i] as i32 as f64);
+            let social_component = c2 * r2 * (global_best_position[i] as i32 as f64 - self.position[i] as i32 as f64);
+            self.velocity[i] = w * self.velocity[i] + cognitive_component + social_component;
+        }
+
+        // Update position
+        for i in 0..self.position.len() {
+            self.position[i] = self.position[i] ^ (self.velocity[i] > 0.0);
+        }
+    }
 }

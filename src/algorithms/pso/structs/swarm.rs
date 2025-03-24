@@ -30,4 +30,21 @@ impl Swarm {
         println!("Global Best Position: {:?}", self.best_position);
         println!("Global Best Loss: {:?}", self.best_loss);
     }
+
+    // Update the global best position and loss based on the particles
+    pub fn update_global_best(&mut self) {
+        for particle in &self.particles {
+            if particle.best_loss < self.best_loss {
+                self.best_loss = particle.best_loss;
+                self.best_position = particle.best_position.clone();
+            }
+        }
+    }
+
+    // Update the particles in the swarm
+    pub fn update_particles(&mut self, w: f64, c1: f64, c2: f64) {
+        for particle in &mut self.particles {
+            particle.update(&self.best_position, w, c1, c2);
+        }
+    }
 }

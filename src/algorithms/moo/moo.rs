@@ -51,10 +51,11 @@ pub fn moo_loop() {
     let mut terminate = false;
     let mut population = init_population(9, 50); // Initialize the population
     let mut generation = 0;
-    while terminate == false && generation < 100 {
+    while terminate == false && generation < 1000 {
         generation += 1;
 
         // Generate offspring
+        //Bitflip mutation and single point crossover
 
         // Combine parent and offspring populations to superpopulation S with size 2 * population_size (200)
 
@@ -147,10 +148,132 @@ pub fn fast_nondominated_sort(population: &Vec<Combination>) -> Vec<Vec<Combinat
 
 }
 
-// pub fn crowding_distance(population: &Vec<Combination>) -> Vec<Combination> {
+// Updates the crowding distance for a single objective.
+// obj_index = 0 for the first objective (f1), 1 for the second objective (f2).
+// It sorts the population by that objective, assigns infinite distance to boundary
+// individuals, and updates interior individuals using the standard formula.
+fn assign_crowding_distance_for_objective(
+    obj_index: usize,
+    normalized_fitnesses: &[(f64, f64)],
+    crowding_distances: &mut [f64],
+) {
+    // Create a list of indices [0, 1, ..., population_size - 1].
+    let mut sorted_indices: Vec<usize> = (0..crowding_distances.len()).collect();
 
-// }
+    // Sort indices by the chosen objective (f1 or f2).
+    sorted_indices.sort_by(|&i, &j| {
+        let val_i = if obj_index == 0 {
+            normalized_fitnesses[i].0
+        } else {
+            normalized_fitnesses[i].1
+        };
+        let val_j = if obj_index == 0 {
+            normalized_fitnesses[j].0
+        } else {
+            normalized_fitnesses[j].1
+        };
+        val_i.partial_cmp(&val_j).unwrap()
+    });
 
+    // Assign infinite distance to the boundary solutions for this objective.
+    crowding_distances[sorted_indices[0]] = f64::INFINITY;
+    crowding_distances[sorted_indices[sorted_indices.len() - 1]] = f64::INFINITY;
+
+    // For interior points, add the normalized difference of neighbors.
+    // This implements:
+    //   d(I_j) += [ f_m^(I_(j+1)) - f_m^(I_(j-1)) ] / [ f_m^max - f_m^min ]
+    for k in 1..(sorted_indices.len() - 1) {
+        let current_idx = sorted_indices[k];
+        if crowding_distances[current_idx] == f64::INFINITY {
+            continue;
+        }
+
+        // The previous and next individuals in the sorted list.
+        let prev_idx = sorted_indices[k - 1];
+        let next_idx = sorted_indices[k + 1];
+
+        // Extract the normalized objective values for these neighbors.
+        let (prev_f1, prev_f2) = normalized_fitnesses[prev_idx];
+        let (next_f1, next_f2) = normalized_fitnesses[next_idx];
+
+
+        // Compute the difference along the chosen objective.
+        let difference = match obj_index {
+            0 => next_f1 - prev_f1,  // f1 dimension
+            1 => next_f2 - prev_f2,  // f2 dimension
+            _ => unreachable!(),
+        };
+
+        // Accumulate the difference into the crowding distance for the current individual.
+        crowding_distances[current_idx] += difference;
+    }
+}
+
+/// Calculates the crowding distance for each individual in `last_front`.
+/// The crowding distance is a measure of how isolated an individual is
+/// from its neighbors in the objective space, ensuring the population
+/// remains well-spread.
+///
+/// For each objective m, on interior individuals j, we use:
+///   d(I_j) = d(I_j) + [ f_m^(I_(j+1)) - f_m^(I_(j-1)) ] / [ f_m^max - f_m^min ]
+/// Boundary individuals for each objective get assigned an infinite distance.
+pub fn crowding_distance(last_front: &Vec<Combination>) -> (Vec<Combination>, Vec<f64>) {
+    let population_size = last_front.len();
+
+    // 1) Gather each individual's (f1, f2) = (# of features, loss).
+    let fitnesses: Vec<(usize, f64)> = last_front
+        .iter()
+        .map(|individual| get_fitness(individual))
+        .collect();
+
+    // 2) Compute min/max for each objective so we can normalize.
+    let (min_f1, max_f1) = match (
+        fitnesses.iter().map(|f| f.0).min(),
+        fitnesses.iter().map(|f| f.0).max(),
+    ) {
+        (Some(min_val), Some(max_val)) => (min_val, max_val),
+        _ => (0, 0),
+    };
+
+    let (min_f2, max_f2) = {
+        let min_val = fitnesses
+            .iter()
+            .map(|f| f.1)
+            .fold(f64::INFINITY, |a, b| a.min(b));
+        let max_val = fitnesses
+            .iter()
+            .map(|f| f.1)
+            .fold(f64::NEG_INFINITY, |a, b| a.max(b));
+        (min_val, max_val)
+    };
+
+    // 3) Normalize each individual’s fitness values so comparisons are fair.
+    let normalized_fitnesses: Vec<(f64, f64)> = fitnesses
+        .iter()
+        .map(|&(f1, f2)| {
+            let norm_f1 = if max_f1 != min_f1 {
+                (f1 as f64 - min_f1 as f64) / (max_f1 - min_f1) as f64
+            } else {
+                0.0
+            };
+            let norm_f2 = if max_f2 != min_f2 {
+                (f2 - min_f2) / (max_f2 - min_f2)
+            } else {
+                0.0
+            };
+            (norm_f1, norm_f2)
+        })
+        .collect();
+
+    // 4) Prepare a vector to store crowding distances for each individual.
+    let mut crowding_distances = vec![0.0; population_size];
+    // 5) Update crowding distance for both objectives (f1 and f2).
+    assign_crowding_distance_for_objective(0, &normalized_fitnesses, &mut crowding_distances);
+    assign_crowding_distance_for_objective(1, &normalized_fitnesses, &mut crowding_distances);
+
+    //Returns the last front and the crowding distances as a tuple
+    return (last_front.clone(), crowding_distances.clone());
+}
 
 pub fn init() {
     // Initialize the multi-objective optimization algorithm

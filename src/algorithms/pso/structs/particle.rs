@@ -1,3 +1,5 @@
+pub use crate::structs::combination::Combination;
+
 #[derive(Debug, Clone)]
 pub struct Particle {
     pub position: Vec<bool>, // Current position of the particle
@@ -34,14 +36,15 @@ impl Particle {
         println!("Best Position: {:?}", self.best_position);
         println!("Best Loss: {:?}", self.best_loss);
     }
-
+    
+    /// Updates velocity of a Particle
+    /// 
+    /// global_best_position: Global best position
+    /// w: Inertia weight
+    /// c1: Cognitive weight
+    /// c2: Social weight 
     pub fn update(&mut self, global_best_position: &Vec<bool>, w: f64, c1: f64, c2: f64) {
-        /// Updates velocity of a Particle
-        /// 
-        /// global_best_position: Global best position
-        /// w: Inertia weight
-        /// c1: Cognitive weight
-        /// c2: Social weight 
+        
         for i in 0..self.velocity.len() {
             let r1 = rand::random::<f64>();
             let r2 = rand::random::<f64>();
@@ -55,5 +58,23 @@ impl Particle {
         for i in 0..self.position.len() {
             self.position[i] = self.position[i] ^ (self.velocity[i] > 0.0);
         }
+    }
+
+    /// Estimates fitness of a Particle
+    /// 
+    /// epsilon: represents the weight of the penalty for the number of features used
+    /// combinations: lookup table for the possible combinations and their losses
+    pub fn estimate_fitness(&mut self, epsilon: f64, combinations: Vec<Combination>) -> f64 {
+        let x = self.position.iter().map(|&x| x as i32 as f64).collect::<Vec<f64>>();
+        
+        // Set T to the Loss of the combination matching current position
+        let h_eT: f64 = combinations.iter().find(|&c| c.combination == self.position).unwrap().loss;
+
+        // Set h_p to the number of columns used
+        let h_p: f64 = x.iter().sum::<f64>();
+
+        // Rerturn h_e * T(x) + epsilon * h_p(x)
+        let fit: f64 = h_eT + epsilon * h_p;
+        return fit
     }
 }

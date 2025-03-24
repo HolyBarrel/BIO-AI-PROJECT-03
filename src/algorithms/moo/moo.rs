@@ -30,6 +30,18 @@ pub fn create_individual(gene_length: usize, data: &Vec<Combination>) -> Combina
 
 }
 
+pub fn set_individual_loss(individual: &mut Combination, lookup_table: &Vec<Combination>) {
+    // Calculate the loss for the individual based on the lookup table
+    let mut loss = 0.0;
+    for i in lookup_table.iter() {
+        if i.combination == individual.combination {
+            loss = i.loss;
+            break;
+        }
+    }
+    individual.loss = loss; 
+}
+
 pub fn get_fitness(individual: &Combination) -> (usize, f64) {
     let activated_columns = individual.combination.iter().filter(|&&b| b).count();
     (activated_columns, individual.loss)
@@ -37,25 +49,43 @@ pub fn get_fitness(individual: &Combination) -> (usize, f64) {
 
 pub fn init_population(gene_length: usize, population_size: usize) -> Vec<Combination> {
     let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; // Path to the CSV file
-    let data = read_data::read_data(file_path).unwrap(); // Read data from the file and unwrap the Result
+    let lookup_table = read_data::read_data(file_path).unwrap(); // Read data from the file and unwrap the Result
     let mut population: Vec<Combination> = Vec::with_capacity(population_size);
 
     for _ in 0..population_size {
-        let combination = create_individual(gene_length, &data);
+        let combination = create_individual(gene_length, &lookup_table);
         population.push(combination);
     }
     population
+}
+
+pub fn bit_flip_mutation(individual: &mut Combination, mutation_probability: f64, lookup_table: &Vec<Combination>) {
+    let mut rng = rand::rng();
+    let gene_length = individual.combination.len();
+    for i in 0..gene_length {
+        if rng.random::<f64>() < mutation_probability {
+            individual.combination[i] = !individual.combination[i];
+        }
+    }
+
+    // Update the loss of the mutated individual
+    set_individual_loss(individual, lookup_table);
 }
 
 pub fn moo_loop() {
     let mut terminate = false;
     let mut population = init_population(9, 50); // Initialize the population
     let mut generation = 0;
+    let mut mutation_probability = 0.1; // Mutation probability
+
+    // FastnondominatedSort of the initial population
+
+    //Binary tournament selection of the population
+
     while terminate == false && generation < 1000 {
         generation += 1;
 
         // Generate offspring
-        //Bitflip mutation and single point crossover
 
         // Combine parent and offspring populations to superpopulation S with size 2 * population_size (200)
 

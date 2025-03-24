@@ -12,10 +12,10 @@ pub fn init(dataset: &str) {
     // Hyperparameters for swarm
     let swarm_size = 20;
     let particle_size = combinations[0].combination.len(); // Size of each particle is the size of the combination
-    let w = 0.5; // Inertia weight
-    let c1 = 1.0; // Cognitive weight
-    let c2 = 1.0; // Social weight
-    let epsilon = 0.1; // Small value to avoid division by zero
+    let w = 0.8; // Inertia weight
+    let c1 = 0.1; // Cognitive weight
+    let c2 = 0.1; // Social weight
+    let epsilon = 0.01; // Small value to avoid division by zero
     let epochs = 1000;
 
     let mut swarm = Swarm::new(swarm_size, particle_size);
@@ -23,10 +23,13 @@ pub fn init(dataset: &str) {
 
     // Main loop for PSO
     for epoch in 0..epochs {
-        println!("Epoch {}: Starting particle updates", epoch);
         swarm.update_particles(w, c1, c2, epsilon, &combinations);
         swarm.update_global_best();
-        println!("Epoch {}: Global best loss: {}", epoch, swarm.best_loss);
+        // Print every 100 epochs
+        if epoch % 100 == 0 {
+            println!("Epoch {}: Global best loss: {}", epoch, swarm.best_loss);
+            println!("Epoch {}: Global best position: {:?}", epoch, swarm.best_position);
+        }
     }
     println!("PSO algorithm completed. Final global best loss: {}", swarm.best_loss);
     println!("Final global best position: {:?}", swarm.best_position);

@@ -6,13 +6,14 @@ from sklearn.metrics import accuracy_score
 from itertools import product
 
 class FeatureSelectionXGB:
-    def __init__(self, df_file_name, target_column='target', ignored_features=[], use_gpu=False, print_per=1000, show_lookup=True, show_best=True, save_to_csv=False, output_location='output'):
+    def __init__(self, df_file_name, target_column='target', ignored_features=[], test_size=0.2, use_gpu=False, print_per=1000, show_lookup=True, show_best=True, save_to_csv=False, output_location='output'):
         """
         Initializes the class with the dataframe and parameters for feature selection experiment.
         """
         self.df_file_name = df_file_name
         self.target_column = target_column
         self.ignored_features = ignored_features
+        self.test_size = test_size
         self.use_gpu = use_gpu
         self.print_per = print_per
         self.show_lookup = show_lookup
@@ -21,7 +22,7 @@ class FeatureSelectionXGB:
         self.output_location = output_location
 
         # Load the dataset
-        self.df = pd.read_csv(f"preprocessing/data/{self.df_file_name}.tsv", sep='\t')
+        self.df = pd.read_csv(f"XGB-Feature-Selection/data/{self.df_file_name}.tsv", sep='\t')
 
     def train_xgb(self, feature_columns):
         """Trains an XGBoost classifier on the given feature set."""
@@ -31,7 +32,7 @@ class FeatureSelectionXGB:
         # Ensure class labels start from 0
         y = y - y.min()
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=self.test_size, random_state=42)
         
         # Convert data to DMatrix (recommended by XGBoost)
         dtrain = xgb.DMatrix(X_train, label=y_train)
@@ -54,6 +55,17 @@ class FeatureSelectionXGB:
         acc = accuracy_score(y_test, y_pred)
         
         return acc
+    
+    def save_results_to_csv(self, results_df):
+        # Create output folders
+        if not os.path.exists(self.output_location):
+            os.makedirs(self.output_location)
+
+        # Save file to output folder
+        results_df.to_csv(self.output_location + "/" + self.df_file_name, index=False)
+        print(f"\nResults saved to {self.output_location}")
+
+
 
     def feature_selection_experiment(self):
         """Tests all feature combinations and logs their accuracy, printing progress at every `print_per` steps."""
@@ -71,7 +83,7 @@ class FeatureSelectionXGB:
                 continue  # Skip empty feature selection
             
             acc = self.train_xgb(selected_features)
-            results.append(tuple(combo) + (acc,))
+            results.append(tuple(combo) + ((1-acc),))
 
             # Update the best combination if the current accuracy is higher
             if acc > best_accuracy:
@@ -83,7 +95,7 @@ class FeatureSelectionXGB:
                 percent_done = (i + 1) / total_combinations * 100
                 print(f"Processed {i+1}/{total_combinations} combinations ({percent_done:.2f}% done)")
 
-        columns = feature_names + ['Fit']
+        columns = feature_names + ['Loss']
         results_df = pd.DataFrame(results, columns=columns)
 
         # Print the best combination and its fitness score
@@ -93,16 +105,11 @@ class FeatureSelectionXGB:
         if self.show_best:
             print("\nBest Feature Set and Accuracy:")
             print(f"Best Features: {best_combination}")
-            print(f"Accuracy: {best_accuracy}")
+            print(f"Accuracy:      {best_accuracy:.4f}")
+            print(f"Losw (1-a):    {1-best_accuracy:.4f}")
 
         # Save to CSV if requested
         if self.save_to_csv:
-            # Create output folders
-            if not os.path.exists(self.output_location):
-                os.makedirs(self.output_location)
-
-            # Save file to output folder
-            results_df.to_csv(self.output_location + "/" + self.df_file_name, index=False)
-            print(f"\nResults saved to {self.output_location}")
+            self.save_results_to_csv(results_df)
 
         return results_df

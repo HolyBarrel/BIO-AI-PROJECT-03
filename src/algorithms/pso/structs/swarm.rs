@@ -1,6 +1,6 @@
 use crate::algorithms::pso::structs::particle::Particle; // Import particle struct
 pub use crate::structs::combination::Combination; // Import combination struct
-pub use crate::algorithms::pso::structs::swarm::UpdateMode; // Import update mode enum
+pub use crate::algorithms::pso::structs::pso_mode::UpdateMode; // Import update mode enum
 
 #[derive(Debug, Clone)]
 pub struct Swarm {
@@ -41,11 +41,36 @@ impl Swarm {
         }
     }
 
+    fn find_k_nearest_best(&self, particle_index: usize, k: usize) -> Vec<bool> {
+        let mut neighbors = self.particles.iter().enumerate()
+            .filter(|&(i, _)| i != particle_index) // Exclude self
+            .map(|(i, p)| (i, p.best_loss, &p.best_position))
+            .collect::<Vec<_>>();
+        
+        neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap()); // Sort by best loss (ascending)
+        
+        neighbors.into_iter().take(k).map(|(_, _, pos)| pos.clone()).next().unwrap_or_else(|| self.particles[particle_index].best_position.clone())
+    }
+
     // Update the particles in the swarm
     pub fn update_particles(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>) {
-        for particle in &mut self.particles {
-            particle.update_pos(&self.best_position, w, c1, c2);
-            // Update the particle's loss based on its position
+        let k_neighbor_positions = if let UpdateMode::KNeighbor(k) = self.mode {
+            Some(
+                (0..self.particles.len())
+                    .map(|i| self.find_k_nearest_best(i, k))
+                    .collect::<Vec<_>>(),
+            )
+        } else {
+            None
+        };
+
+        for (i, particle) in self.particles.iter_mut().enumerate() {
+            let best_position = match self.mode {
+                UpdateMode::Global => &self.best_position,
+                UpdateMode::KNeighbor(_) => &k_neighbor_positions.as_ref().unwrap()[i],
+            };
+
+            particle.update_pos(best_position, w, c1, c2);
             particle.update_loss(epsilon, combinations);
         }
     }

@@ -107,20 +107,25 @@ impl From<Combination> for MooCombination {
 /// Creates a single MooCombination, either from an existing Combination in `data`
 /// or as a brand new one with random bits.
 pub fn create_individual(gene_length: usize, data: &Vec<Combination>) -> MooCombination {
-    let mut activated_columns = vec![false; gene_length];
     let mut rng = rand::rng();
 
-    // Randomly generate a bit vector of length = num_columns
-    let num_columns = 9;
-    for i in 0..num_columns {
-        let random_value: f64 = rng.random_range(0.0..1.0);
-        activated_columns[i] = random_value < 0.5;
+    let mut activated_columns = vec![false; gene_length];
+
+    let num_active = rng.random_range(1..=gene_length);
+
+    // Create a list of indices and shuffle it.
+    let mut indices: Vec<usize> = (0..gene_length).collect();
+    indices.shuffle(&mut rng);
+
+    // Set the first num_active indices to true.
+    for &i in indices.iter().take(num_active) {
+        activated_columns[i] = true;
     }
+
 
     if let Some(existing) = data.iter().find(|c| c.combination == activated_columns) {
         existing.clone().into()
     } else {
-        // Otherwise create a new MooCombination
         MooCombination {
             combination: activated_columns,
             loss: 0.0,
@@ -209,6 +214,9 @@ pub fn bit_flip_mutation(individual: &mut MooCombination, mutation_probability: 
             individual.combination[i] = !individual.combination[i];
         }
     }
+
+    // Ensure at least one feature is selected after mutation
+    enforce_valid_combination(individual);
 }
 
 /// Binary tournament selection using rank and crowding_distance from MooCombination.
@@ -413,6 +421,14 @@ pub fn crowding_distance(population_front: &mut [MooCombination]) {
     // 5) Assign crowding distance for each objective
     assign_crowding_distance_for_objective(0, &normalized_fitnesses, population_front);
     assign_crowding_distance_for_objective(1, &normalized_fitnesses, population_front);
+}
+
+pub fn enforce_valid_combination(individual: &mut MooCombination) {
+    // Ensure that at least one feature is selected.
+    if individual.combination.iter().all(|&b| !b) {
+        let random_index = rand::rng().random_range(0..individual.combination.len());
+        individual.combination[random_index] = true;
+    }
 }
 
 pub fn generate_offspring_population(population: &[MooCombination], mutation_probability: f64, data: &Vec<Combination>) -> Vec<MooCombination> {
@@ -643,6 +659,5 @@ pub fn init() {
     // 8) Plot the final population
     let plot_filename = "src/output/nsga_2.png";
     plot_population(&final_sorted_population, plot_filename).unwrap();
-
 
 }

@@ -1,10 +1,14 @@
-use crate::structs::combination::{self, Combination}; // Import the Combination struct from the combination module
+use crate::structs::combination::Combination; // Import the Combination struct from the combination module
 use crate::utils::read_data;
 use rand::prelude::*;
 use plotters::prelude::*;
 
-// Plotting library for visualizing the population
-// Points are colored based on their rank.
+/**
+ * Plots the population of individuals for the MOO algorithm.
+ * Each individual is represented as a point in a 2D space, where the x-axis represents the number of active features (columns) 
+ * and the y-axis represents the loss value.
+ * The points are colored based on their rank in the population.
+ */
 pub fn plot_population(population: &[MooCombination], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Filter out individuals with infinite loss (empty feature sets).
     let valid: Vec<&MooCombination> = population.iter().filter(|ind| !ind.loss.is_infinite()).collect();
@@ -27,45 +31,53 @@ pub fn plot_population(population: &[MooCombination], filename: &str) -> Result<
 
     // Build the chart
     let mut chart = ChartBuilder::on(&root)
-        .caption("NSGA-II Population", ("sans-serif", 40))
+        .caption("NSGA-II Population", ("sans-serif", 50))
         .margin(20)
-        .x_label_area_size(40)
-        .y_label_area_size(40)
-        .build_cartesian_2d(x_min..x_max, y_min..y_max)?;
+        .x_label_area_size(70)
+        .y_label_area_size(70)
+        .build_cartesian_2d(x_min..x_max + 1, y_min..y_max + 0.01)?;
 
-    chart.configure_mesh()
-        .x_desc("Number of Active Columns")
+        chart.configure_mesh()
+        .x_desc("Number of Active Features (Columns)")
         .y_desc("Loss")
+        
+        // Set the font size for the axis labels
+        .axis_desc_style(("sans-serif", 22).into_font())
+        
+        // Increase tick label font size
+        .x_label_style(("sans-serif", 20).into_font())
+        .y_label_style(("sans-serif", 20).into_font())
         .draw()?;
 
     // Plot each valid individual as a circle.
     chart.draw_series(
         valid.iter().map(|ind| {
-            // Use the raw count of active columns for x.
+            // Compute x and y values
             let x = ind.combination.iter().filter(|&&b| b).count() as i32;
             let y = ind.loss;
-
             // Choose a color based on rank.
             let color = match ind.rank {
                 0 => &RED,
-                1 => &BLUE,
-                2 => &GREEN,
-                3 => &BLACK,
-                _ => &MAGENTA,
+                1 => &MAGENTA,
+                2 => &BLUE,
+                3 => &GREEN,
+                _ => &BLACK,
             };
-
-            Circle::new((x, y), 5, color.filled())
+            EmptyElement::at((x, y))
+                + Circle::new((0, 0), 5, color.filled())
+                + Circle::new((0, 0), 5, ShapeStyle::from(&BLACK).stroke_width(1))
         })
     )?
     .label("Individuals")
-    .legend(|(x, y)| Circle::new((x, y), 5, RED.filled()));
+    // // Add a legend to the plot and the size/color of the dot
+    .legend(|(x, y)| Circle::new((x, y), 5, ShapeStyle::from(&BLACK).stroke_width(1)));
 
-    // Optionally, add a legend.
+    // Configures the legend
     chart.configure_series_labels()
-        .border_style(&BLACK)
-        .draw()?;
+    .border_style(&BLACK)
+    .label_font(("sans-serif", 20).into_font())
+    .draw()?;
 
-    // Save the file
     root.present()?;
     println!("Plot saved to {}", filename);
 
@@ -629,7 +641,7 @@ pub fn init() {
     }
 
     // 8) Plot the final population
-    let plot_filename = "XGB-Feature-Selection/output/test.png";
+    let plot_filename = "src/output/nsga_2.png";
     plot_population(&final_sorted_population, plot_filename).unwrap();
 
 

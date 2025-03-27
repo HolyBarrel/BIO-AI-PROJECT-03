@@ -4,3 +4,4 @@ xgboost==3.0.0
 matplotlib
 seaborn
 scikit_learn
+numpy

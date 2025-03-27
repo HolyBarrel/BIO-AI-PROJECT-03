@@ -11,43 +11,67 @@ breast_cancer_df = pd.read_csv(paths[0])
 titanic_df = pd.read_csv(paths[1])
 wine_quality_df = pd.read_csv(paths[2])
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import os
+
+def is_pareto_efficient(costs):
+    """
+    Find the Pareto-efficient points.
+
+    Parameters:
+    - costs: ndarray of shape (n_points, n_costs)
+
+    Returns:
+    - A boolean array indicating whether each point is Pareto efficient.
+    """
+    is_efficient = [True] * len(costs)
+    for i, c in enumerate(costs):
+        if is_efficient[i]:
+            is_efficient[i] = not any(
+                (all(c2 <= c) and any(c2 < c)) for j, c2 in enumerate(costs) if j != i and is_efficient[j]
+            )
+    return is_efficient
+
 def plot_feature_count_loss(df, title):
-    df['selected_features'] = df[df.columns[:-1]].sum(axis=1)
+    """
+    Plots number of selected features vs loss and highlights Pareto front.
 
+    Parameters:
+    - df: DataFrame with only binary feature selection columns + 'Loss' column.
+    - title: String for saving and titling the plot.
+    """
+    if 'Loss' not in df.columns:
+        raise ValueError("DataFrame must contain a 'Loss' column.")
 
-    # Create a scatter plot: x-axis is the number of selected features, y-axis is the Loss value.
+    df = df.copy()
+    df['selected_features'] = df.drop(columns=['Loss']).sum(axis=1)
+
+    costs = df[['selected_features', 'Loss']].values
+    pareto_mask = is_pareto_efficient(costs)
+    df['pareto'] = pareto_mask
+
     plt.figure(figsize=(12, 8))
-    plt.scatter(df['selected_features'], df['Loss'], s=100, color='tab:blue', edgecolor='k')
-    plt.title("Loss vs. Number of Selected Features")
-    plt.xlabel("Number of Selected Features")
-    plt.ylabel("Loss")
-    plt.grid(True)
-    plt.savefig(f"visualizations/fcl/{title}_loss_vs_feature_count.png")
+    sns.scatterplot(data=df, x='selected_features', y='Loss', hue='pareto', palette={True: 'red', False: 'blue'})
+    plt.title('Number of Selected Features vs Loss')
+    plt.xlabel('Number of Selected Features')
+    plt.ylabel('Loss')
+
+    os.makedirs("visualizations/scatter", exist_ok=True)
+    plt.savefig(f"visualizations/scatter/{title}_scatter_plot.png")
+    plt.close()
+
 
 def violin_plot(df, title):
+    df = df.copy()
+    df['selected_features'] = df.drop(columns=['Loss']).sum(axis=1)
     plt.figure(figsize=(12,8))
     sns.boxplot(x='selected_features', y='Loss', data=df)
     plt.title('Distribution of Loss by Number of Selected Features')
     plt.xlabel('Number of Selected Features')
     plt.ylabel('Loss')
     plt.savefig(f"visualizations/violin/{title}_violin_plot.png")
-
-def parallel_coordinates_plot(df, title):
-    df['loss_bin'] = pd.qcut(df['Loss'], q=4, labels=False)
-    plt.figure(figsize=(12,8))
-    parallel_coordinates(df.drop('Loss', axis=1), 'loss_bin', colormap=plt.get_cmap("Set2"))
-    plt.title('Parallel Coordinates Plot of Feature Combinations')
-    plt.xlabel('Features')
-    plt.ylabel('Feature Value')
-    plt.savefig(f"visualizations/parallel/{title}_parallel_coordinates.png")
-
-def heatmap_plot(df, title):
-    plt.figure(figsize=(12, 8))
-    sns.heatmap(df[df.columns[:-2]], cmap="YlGnBu", cbar=False, annot=True, fmt=".0f")
-    plt.title("Heatmap of Feature Combinations")
-    plt.xlabel("Features")
-    plt.ylabel("Solution Index")
-    plt.savefig(f"visualizations/heat_map/{title}_heatmap.png")
 
 def matrix_plot(df, title):
     sns.pairplot(df, vars=df.columns[:-1])
@@ -60,16 +84,24 @@ def pca_2d_plot(df, title):
     df['pca-two'] = pca_result[:, 1]
 
     plt.figure(figsize=(12, 8))
-    sns.scatterplot(
+    ax = sns.scatterplot(
         x="pca-one", y="pca-two",
         hue="Loss",
         palette=sns.color_palette("hsv", as_cmap=True),
         data=df,
-        legend="full",
+        legend=False,  # disable the discrete legend
         alpha=0.3
     )
+    # Create a ScalarMappable for the colorbar with same colormap and normalization
+    sm = plt.cm.ScalarMappable(cmap="hsv", norm=plt.Normalize(vmin=df["Loss"].min(), vmax=df["Loss"].max()))
+    sm.set_array([])  # Required for the colorbar to work
+    fig = plt.gcf()
+    fig.colorbar(sm, ax=ax, label="Loss")
+    
     plt.title("PCA Plot of Feature Combinations")
+    os.makedirs("visualizations/pca2d", exist_ok=True)
     plt.savefig(f"visualizations/pca2d/{title}_pca_plot.png")
+    plt.close()
 
 def tsne_2d_plot(df, title):
     tsne = TSNE(n_components=2)
@@ -78,17 +110,23 @@ def tsne_2d_plot(df, title):
     df['tsne-two'] = tsne_result[:, 1]
 
     plt.figure(figsize=(12, 8))
-    sns.scatterplot(
+    ax = sns.scatterplot(
         x="tsne-one", y="tsne-two",
         hue="Loss",
         palette=sns.color_palette("hsv", as_cmap=True),
         data=df,
-        legend="full",
+        legend=False,
         alpha=0.3
     )
+    sm = plt.cm.ScalarMappable(cmap="hsv", norm=plt.Normalize(vmin=df["Loss"].min(), vmax=df["Loss"].max()))
+    sm.set_array([])
+    fig = plt.gcf()
+    fig.colorbar(sm, ax=ax, label="Loss")
+    
     plt.title("t-SNE Plot of Feature Combinations")
+    os.makedirs("visualizations/tsne2d", exist_ok=True)
     plt.savefig(f"visualizations/tsne2d/{title}_tsne_plot.png")
-
+    plt.close()
 
 def pca_3d_plot(df, title):
     pca = PCA(n_components=3)
@@ -99,12 +137,16 @@ def pca_3d_plot(df, title):
 
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(df['pca-one'], df['pca-two'], df['pca-three'], c=df['Loss'], cmap='hsv', alpha=0.3)
+    sc = ax.scatter(df['pca-one'], df['pca-two'], df['pca-three'], c=df['Loss'], cmap='hsv', alpha=0.3)
+    fig.colorbar(sc, ax=ax, label="Loss")
+    
     ax.set_xlabel('PCA One')
     ax.set_ylabel('PCA Two')
     ax.set_zlabel('PCA Three')
     plt.title("PCA Plot of Feature Combinations")
+    os.makedirs("visualizations/pca3d", exist_ok=True)
     plt.savefig(f"visualizations/pca3d/{title}_pca_plot.png")
+    plt.close()
 
 def tsne_3d_plot(df, title):
     tsne = TSNE(n_components=3)
@@ -115,12 +157,17 @@ def tsne_3d_plot(df, title):
 
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(df['tsne-one'], df['tsne-two'], df['tsne-three'], c=df['Loss'], cmap='hsv', alpha=0.3)
+    sc = ax.scatter(df['tsne-one'], df['tsne-two'], df['tsne-three'], c=df['Loss'], cmap='hsv', alpha=0.3)
+    fig.colorbar(sc, ax=ax, label="Loss")
+    
     ax.set_xlabel('t-SNE One')
     ax.set_ylabel('t-SNE Two')
     ax.set_zlabel('t-SNE Three')
     plt.title("t-SNE Plot of Feature Combinations")
+    os.makedirs("visualizations/tsne3d", exist_ok=True)
     plt.savefig(f"visualizations/tsne3d/{title}_tsne_plot.png")
+    plt.close()
+
 
 
 def main():
@@ -132,15 +179,6 @@ def main():
     violin_plot(breast_cancer_df, "Breast Cancer Wisconsin Original")
     violin_plot(titanic_df, "Titanic")
     violin_plot(wine_quality_df, "Wine Quality Combined")
-
-    parallel_coordinates_plot(breast_cancer_df, "Breast Cancer Wisconsin Original")
-    parallel_coordinates_plot(titanic_df, "Titanic")
-    parallel_coordinates_plot(wine_quality_df, "Wine Quality Combined")
-
-
-    heatmap_plot(breast_cancer_df, "Breast Cancer Wisconsin Original")
-    heatmap_plot(titanic_df, "Titanic")
-    heatmap_plot(wine_quality_df, "Wine Quality Combined")
 
     matrix_plot(breast_cancer_df, "Breast Cancer Wisconsin Original")
     matrix_plot(titanic_df, "Titanic")
@@ -162,7 +200,6 @@ def main():
     tsne_3d_plot(breast_cancer_df, "Breast Cancer Wisconsin Original")
     tsne_3d_plot(titanic_df, "Titanic")
     tsne_3d_plot(wine_quality_df, "Wine Quality Combined")
-
 
 
 

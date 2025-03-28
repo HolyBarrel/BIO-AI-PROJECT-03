@@ -5,8 +5,9 @@ use rand::Rng;
 use crate::{structs::combination::Combination, utils::read_data::read_data};
 use plotters::prelude::*;
 const POPULATION_SIZE: usize = 100;
-const MAX_GENERATIONS: usize = 10000;
+const MAX_GENERATIONS: usize = 1000;
 const TOURNAMENT_SIZE: usize = 3;
+const W : f64 = 0.5;
 
 pub fn generate_population(n: usize) -> Vec<Vec<bool>>{
 
@@ -22,30 +23,29 @@ pub fn generate_population(n: usize) -> Vec<Vec<bool>>{
     return population;
 }
 
-pub fn cost_function(combinations: &Vec<Combination>, solution: &Vec<bool>) -> f64 {
+pub fn cost_function(combinations: &Vec<Combination>, solution: &Vec<bool>, largest_loss:f64, w: f64) -> f64 {
+    let mut loss = get_loss(combinations, solution);
+    loss = loss / largest_loss;
     let mut feature_count = 0;
-    let mut cost = 0.0;
     for feature in solution {
         if *feature {
             feature_count += 1;
         }
     }
-    if feature_count == 0 {
-        return f64::MAX;
-    }
-    
-    cost = get_loss(combinations, solution);
+    let feature_count = feature_count as f64 / solution.len() as f64;
+    let cost = w * loss + (1.0 - w) * feature_count;
+    return cost;
 
-    return cost + (feature_count as f64 / (10.0 * solution.len() as f64) as f64);
+
 }
 
-pub fn tournament_selection(population: &Vec<Vec<bool>>, combinations: &Vec<Combination>) -> Vec<bool> {
+pub fn tournament_selection(population: &Vec<Vec<bool>>, combinations: &Vec<Combination>, largest_loss:f64) -> Vec<bool> {
     let mut rng = rand::rng();
     let mut best_solution = population[rng.random_range(0..population.len())].clone();
-    let mut best_cost = cost_function(combinations, &best_solution);
+    let mut best_cost = cost_function(combinations, &best_solution, largest_loss, W);
     for _ in 0..TOURNAMENT_SIZE {
         let solution = population[rng.random_range(0..population.len())].clone();
-        let cost = cost_function(combinations, &solution);
+        let cost = cost_function(combinations, &solution, largest_loss, W);
         if cost < best_cost {
             best_solution = solution;
             best_cost = cost;
@@ -102,14 +102,20 @@ pub fn get_loss(combinations: &Vec<Combination>, solution: &Vec<bool>) -> f64 {
 pub fn genetic_algorithm(combinations: &Vec<Combination>) -> (Combination, f64, Vec<(f64, f64)>) {
     let n = combinations[0].combination.len();
     let mutation_rate = 1.0 / n as f64;
+    let mut largest_loss = 0.0;
+    for combination in combinations {
+        if combination.loss > largest_loss {
+            largest_loss = combination.loss;
+        }
+    }
 
     let mut population = generate_population(n);
     let mut costs = Vec::new();
-    let mut best_solution: Combination = Combination {combination: Vec::new(), loss: f64::MAX};
-    let mut best_cost = cost_function(&combinations, &best_solution.combination);
+    let mut best_solution: Combination = Combination { combination: population[0].clone(), loss: get_loss(&combinations, &population[0]) };
+    let mut best_cost = cost_function(&combinations, &best_solution.combination, largest_loss, W);
 
     for solution in &population{
-        let cost = cost_function(&combinations, solution);
+        let cost = cost_function(&combinations, solution, largest_loss, W);
         if cost < best_cost {
             best_solution.combination = solution.clone();
             best_solution.loss = get_loss(&combinations, solution);
@@ -122,21 +128,21 @@ pub fn genetic_algorithm(combinations: &Vec<Combination>) -> (Combination, f64, 
     for gen in 0..MAX_GENERATIONS{
         let mut new_population = Vec::new();
         for i in 0..POPULATION_SIZE{
-            let parent1 = tournament_selection(&population, &combinations);
-            let parent2 = tournament_selection(&population, &combinations);
+            let parent1 = tournament_selection(&population, &combinations, largest_loss);
+            let parent2 = tournament_selection(&population, &combinations, largest_loss);
             let (mut child1, mut child2) = single_point_crossover(&parent1, &parent2);
             bit_flip_mutation(&mut child1, mutation_rate);
             bit_flip_mutation(&mut child2, mutation_rate);
             let distance1 = hamming_distance(&parent1, &child1);
             let distance2 = hamming_distance(&parent2, &child2);
             if distance1 < distance2 {
-                if cost_function(&combinations, &child1) < cost_function(&combinations, &parent1) {
+                if cost_function(&combinations, &child1, largest_loss,W) < cost_function(&combinations, &parent1, largest_loss,W) {
                     new_population.push(child1);
                 } else {
                     new_population.push(parent1);
                 }
             } else {
-                if cost_function(&combinations, &child2) < cost_function(&combinations, &parent2) {
+                if cost_function(&combinations, &child2, largest_loss, W) < cost_function(&combinations, &parent2, largest_loss, W) {
                     new_population.push(child2);
                 } else {
                     new_population.push(parent2);
@@ -147,7 +153,7 @@ pub fn genetic_algorithm(combinations: &Vec<Combination>) -> (Combination, f64, 
         population = new_population;
 
         for solution in &population{
-            let cost = cost_function(&combinations, solution);
+            let cost = cost_function(&combinations, solution, largest_loss, W);
             if cost < best_cost {
                 best_solution.combination = solution.clone();
                 best_solution.loss = get_loss(&combinations, solution);
@@ -251,5 +257,65 @@ pub(crate) fn single_output_optimization(path_vec: [&str; 3]) {
         let output_path = format!("output/soo/{}.png", path);
         plot_costs_and_loss(&costs, &output_path);
     }
+
+}
+
+
+pub(crate) fn multi_run_validation(path: &str){
+    let combinations = read_data(&format!("XGB-Feature-Selection/output/{}", path)).unwrap();
+    let mut best_solutions = Vec::new();
+    let mut costs = Vec::new();
+    let mut feauter_counts = Vec::new();
+    let mut losses = Vec::new();
+    for _ in 0..10{
+        let (solution, cost, _) = genetic_algorithm(&combinations);
+        best_solutions.push(solution.clone());
+        costs.push(cost);
+        let mut feature_count = 0;
+        for feature in &solution.combination {
+            if *feature {
+                feature_count += 1;
+            }
+        }
+        feauter_counts.push(feature_count);
+        losses.push(solution.loss);
+    }
+    let mut mean_best_cost = 0.0;
+    let mut mean_feature_count = 0.0;
+    let mut mean_loss = 0.0;
+
+    for cost in &costs {
+        mean_best_cost += *cost;
+    }
+    mean_best_cost /= costs.len() as f64;
+    for feature_count in &feauter_counts {
+        mean_feature_count += *feature_count as f64;
+    }
+    mean_feature_count /= feauter_counts.len() as f64;
+    for loss in &losses {
+        mean_loss += *loss;
+    }
+    mean_loss /= losses.len() as f64;
+
+    
+    
+    mean_best_cost /= best_solutions.len() as f64;
+    println!("Mean Best Cost: {}", mean_best_cost);
+    println!("Mean Feature Count: {}", mean_feature_count);
+    println!("Mean Loss: {}", mean_loss);
+    let output_path = format!("src/output/soo/{}_histogram.png", path);
+    //plot_histogram(&best_solutions, &output_path);
+    let csv_path = format!("src/output/soo/{}.csv", path);
+    save_data_to_csv(&csv_path, costs.len(), mean_feature_count, mean_loss, mean_best_cost);
+}
+
+
+// Make a function that save data from the run to a csv file.
+fn save_data_to_csv(path: &str,run_counts:usize, mean_feature_count: f64, mean_loss: f64, mean_best_cost: f64){
+    let mut wtr = csv::Writer::from_path(path).unwrap();
+    wtr.write_record(&["Run Counts","Mean Feature Count", "Mean Loss", "Mean Best Cost"]).unwrap();
+    wtr.write_record(&[run_counts.to_string() ,mean_feature_count.to_string(), mean_loss.to_string(), mean_best_cost.to_string()]).unwrap();
+    wtr.flush().unwrap();
+
 
 }

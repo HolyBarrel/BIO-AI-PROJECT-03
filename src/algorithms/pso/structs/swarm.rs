@@ -80,4 +80,16 @@ impl Swarm {
         self.update_particles(w, c1, c2, epsilon, combinations);
         self.update_global_best();
     }
+
+    pub fn perform_pso(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>, epochs: usize) {
+        for epoch in 0..epochs {
+            self.step(w, c1, c2, epsilon, combinations);
+            if epoch % 100 == 0 {
+                println!("Epoch {}: Global best loss: {}", epoch, self.best_loss);
+                println!("Epoch {}: Global best position: {:?}", epoch, self.best_position);
+            }
+        }
+        println!("PSO algorithm completed. Final global best loss: {}", self.best_loss);
+        println!("Final global best position: {:?}", self.best_position);
+    }
 }

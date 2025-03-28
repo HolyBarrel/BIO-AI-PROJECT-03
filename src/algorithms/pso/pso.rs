@@ -24,15 +24,5 @@ pub fn init(dataset: &str) {
     println!("Swarm initialized with {} particles of size {}", swarm_size, particle_size);
 
     // Main loop for PSO
-    for epoch in 0..epochs {
-        swarm.update_particles(w, c1, c2, epsilon, &combinations);
-        swarm.update_global_best();
-        // Print every 100 epochs
-        if epoch % 100 == 0 {
-            println!("Epoch {}: Global best loss: {}", epoch, swarm.best_loss);
-            println!("Epoch {}: Global best position: {:?}", epoch, swarm.best_position);
-        }
-    }
-    println!("PSO algorithm completed. Final global best loss: {}", swarm.best_loss);
-    println!("Final global best position: {:?}", swarm.best_position);
+    swarm.perform_pso(w, c1, c2, epsilon, &combinations, epochs);
 }

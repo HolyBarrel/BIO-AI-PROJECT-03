@@ -107,8 +107,13 @@ impl Swarm {
         let mut model_losses: Vec<f64> = Vec::new();
         let mut gen_to_solutions: Vec<usize> = Vec::new();
         let mut runtimes: Vec<f64> = Vec::new(); // Store runtime for each run
-        
+    
         for run in 0..runs {
+            // Reset the swarm's state before starting each run
+            self.best_position = vec![false; self.best_position.len()];
+            self.best_loss = f64::MAX;
+            self.gen_to_best = 0;
+
             let start_time = Instant::now(); // Start timer
     
             self.perform_pso(w, c1, c2, epsilon, combinations, epoch_per_run, false, false);
@@ -122,8 +127,8 @@ impl Swarm {
         }
     
         // Calculate Average no. of evaluations to solution
-        let avg_gen_to_solution: f64 = gen_to_solutions.iter().sum::<usize>() as f64 / runs as f64;
-        println!("AES: {:.2}", avg_gen_to_solution);
+        let avg_gen_to_solution: f64 = gen_to_solutions.iter().map(|&x| x as f64).sum::<f64>() / runs as f64;
+        println!("AES: {:.6}", avg_gen_to_solution);
     
         // Calculate Average loss
         let avg_loss: f64 = model_losses.iter().sum::<f64>() / runs as f64;

@@ -13,16 +13,20 @@ pub fn init(dataset: &str) {
     // Hyperparameters for swarm
     let swarm_size = 20;
     let particle_size = combinations[0].combination.len(); // Size of each particle is the size of the combination
-    let w = 0.8; // Inertia weight
-    let c1 = 0.1; // Cognitive weight
-    let c2 = 0.1; // Social weight
-    let epsilon = 0.1; // Epsilon for convergence
+    let w = 0.6; // Inertia weight
+    let c1 = 0.2; // Cognitive weight
+    let c2 = 0.2; // Social weight
+    let epsilon = 0.01; // Epsilon for convergence
     let epochs = 1000; // Number of epochs
-    let k = 3; // Number of neighbors to consider
+    let k = 5; // Number of neighbors to consider
+
+    // Pick your spam level
+    let print_performance: bool = false; // Print performance every 100 generations
+    let print_result: bool = true;       // Print result at model end
 
     let mut swarm = Swarm::new(swarm_size, particle_size, UpdateMode::Global);
     println!("Swarm initialized with {} particles of size {}", swarm_size, particle_size);
 
     // Main loop for PSO
-    swarm.perform_pso(w, c1, c2, epsilon, &combinations, epochs);
+    swarm.perform_pso(w, c1, c2, epsilon, &combinations, epochs, print_performance, print_result);
 }

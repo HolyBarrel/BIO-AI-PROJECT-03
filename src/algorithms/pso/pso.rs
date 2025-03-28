@@ -17,8 +17,8 @@ pub fn init(dataset: &str) {
     let c1 = 0.2; // Cognitive weight
     let c2 = 0.2; // Social weight
     let epsilon = 0.01; // Epsilon for convergence
-    let runs = 10; // Number of runs
-    let epochs = 1000; // Number of epochs
+    let runs = 20; // Number of runs
+    let epochs = 100; // Number of epochs
     let k = 5; // Number of neighbors to consider
 
     // Main loop for PSO

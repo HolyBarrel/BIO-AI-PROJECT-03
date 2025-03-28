@@ -123,11 +123,11 @@ impl Swarm {
     
         // Calculate Average no. of evaluations to solution
         let avg_gen_to_solution: f64 = gen_to_solutions.iter().sum::<usize>() as f64 / runs as f64;
-        println!("AES: {}", avg_gen_to_solution);
+        println!("AES: {:.2}", avg_gen_to_solution);
     
         // Calculate Average loss
         let avg_loss: f64 = model_losses.iter().sum::<f64>() / runs as f64;
-        println!("MBF: {:.3}", 1.0 - avg_loss);
+        println!("MBF: {:.6}", 1.0 - avg_loss);
     
         // Calculate and print average runtime
         let avg_runtime: f64 = runtimes.iter().sum::<f64>() / runs as f64;

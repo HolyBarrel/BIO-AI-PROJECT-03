@@ -591,15 +591,14 @@ pub fn elitism(super_population: &[MooCombination]) -> Vec<MooCombination> {
     new_population
 }
 
-pub fn init() {
-    let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; 
+/// Initializes the MOO algorithm with a given dataset and parameters.
+pub fn run_moo_algorithm(file_path: &str, population_size: usize, generations: usize, generations_to_print: usize, gene_length: usize) -> Vec<MooCombination> {
     let lookup_table = read_data::read_data(file_path).unwrap();
-    let mut terminate = false;
-    let mut population = init_population(9, 500, &lookup_table); // Initialize the population
 
-    //TODO; set rank and crowding distance for each individual in the population P_0
-
-    // Call the fast_nondominated_sort function to sort the population
+    // Initialize the population
+    let mut population = init_population(gene_length, population_size, &lookup_table); 
+    
+    // Changes performed to the initial population
     let mut sorted_population = fast_nondominated_sort(population.clone());
 
     // Assgns the crowding distance for the sorted population
@@ -608,18 +607,11 @@ pub fn init() {
     let mut generation = 0;
     let mutation_probability = 0.1;
 
-    // Example usage: mutate the first individual
-    // bit_flip_mutation(&mut population[0], mutation_probability, &lookup_table);
-
     population = sorted_population.clone();
-
-    //TODO: fix possibility for individuals to get 0,0
-
-
-    while !terminate && generation < 1 {
+    while generation < generations {
         generation += 1;
-        // Prints for every 1 generations
-        if generation % 100 == 0 {
+        // Prints for every x generations
+        if generation % generations_to_print == 0 {
             println!("Generation: {}", generation);
             // for individual in &population {
             //    //all the attrs of the individual
@@ -655,6 +647,19 @@ pub fn init() {
     for individual in &final_sorted_population {
         println!("Combination: {:?}, Loss: {}, Rank: {}, Crowding Distance: {}", individual.combination, individual.loss, individual.rank, individual.crowding_distance);
     }
+    final_sorted_population
+
+}
+
+pub fn init() {
+    let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; 
+
+    let population_size = 100; // Size of the population
+    let generations = 1000; // Number of generations to run
+    let generations_to_print = 100; // Print every x generations
+    let gene_length = 9; // Number of features (columns) in the dataset
+
+    let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
 
     // 8) Plot the final population
     let plot_filename = "src/output/nsga_2.png";

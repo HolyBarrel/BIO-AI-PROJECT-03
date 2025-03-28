@@ -17,16 +17,19 @@ pub fn init(dataset: &str) {
     let c1 = 0.2; // Cognitive weight
     let c2 = 0.2; // Social weight
     let epsilon = 0.01; // Epsilon for convergence
+    let runs = 10; // Number of runs
     let epochs = 1000; // Number of epochs
     let k = 5; // Number of neighbors to consider
 
-    // Pick your spam level
-    let print_performance: bool = false; // Print performance every 100 generations
-    let print_result: bool = true;       // Print result at model end
-
-    let mut swarm = Swarm::new(swarm_size, particle_size, UpdateMode::Global);
-    println!("Swarm initialized with {} particles of size {}", swarm_size, particle_size);
-
     // Main loop for PSO
-    swarm.perform_pso(w, c1, c2, epsilon, &combinations, epochs, print_performance, print_result);
+    println!("----------------------------------------");
+    println!("Starting Global PSO algorithm...");
+    let mut swarm = Swarm::new(swarm_size, particle_size, UpdateMode::Global);
+    swarm.run_multiple(w, c1, c2, epsilon, &combinations, runs, epochs);
+    println!("----------------------------------------");
+
+    println!("Starting KNeighbor PSO algorithm...");
+    let mut swarm = Swarm::new(swarm_size, particle_size, UpdateMode::KNeighbor(k));
+    swarm.run_multiple(w, c1, c2, epsilon, &combinations, runs, epochs);
+    println!("----------------------------------------");
 }

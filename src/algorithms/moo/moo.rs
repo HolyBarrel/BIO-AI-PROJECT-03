@@ -2,88 +2,7 @@ use crate::structs::combination::Combination; // Import the Combination struct f
 use crate::utils::read_data;
 use rand::prelude::*;
 use plotters::prelude::*;
-
-/**
- * Plots the population of individuals for the MOO algorithm.
- * Each individual is represented as a point in a 2D space, where the x-axis represents the number of active features (columns) 
- * and the y-axis represents the loss value.
- * The points are colored based on their rank in the population.
- */
-pub fn plot_population(population: &[MooCombination], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
-    // Filter out individuals with infinite loss (empty feature sets).
-    let valid: Vec<&MooCombination> = population.iter().filter(|ind| !ind.loss.is_infinite()).collect();
-    if valid.is_empty() {
-        println!("No valid individuals to plot (all have infinite loss).");
-        return Ok(());
-    }
-
-    // Compute the range for the x-axis (number of active columns)
-    let x_min = valid.iter().map(|ind| ind.combination.iter().filter(|&&b| b).count() as i32).min().unwrap();
-    let x_max = valid.iter().map(|ind| ind.combination.iter().filter(|&&b| b).count() as i32).max().unwrap();
-
-    // Compute the range for the y-axis (loss)
-    let y_min = valid.iter().map(|ind| ind.loss).fold(f64::INFINITY, |a, b| a.min(b));
-    let y_max = valid.iter().map(|ind| ind.loss).fold(f64::NEG_INFINITY, |a, b| a.max(b));
-
-    // Create a drawing area with 800x600 pixels.
-    let root = BitMapBackend::new(filename, (800, 600)).into_drawing_area();
-    root.fill(&WHITE)?;
-
-    // Build the chart
-    let mut chart = ChartBuilder::on(&root)
-        .caption("NSGA-II Population", ("sans-serif", 50))
-        .margin(20)
-        .x_label_area_size(70)
-        .y_label_area_size(70)
-        .build_cartesian_2d(x_min..x_max + 1, y_min..y_max + 0.01)?;
-
-        chart.configure_mesh()
-        .x_desc("Number of Active Features (Columns)")
-        .y_desc("Loss")
-        
-        // Set the font size for the axis labels
-        .axis_desc_style(("sans-serif", 22).into_font())
-        
-        // Increase tick label font size
-        .x_label_style(("sans-serif", 20).into_font())
-        .y_label_style(("sans-serif", 20).into_font())
-        .draw()?;
-
-    // Plot each valid individual as a circle.
-    chart.draw_series(
-        valid.iter().map(|ind| {
-            // Compute x and y values
-            let x = ind.combination.iter().filter(|&&b| b).count() as i32;
-            let y = ind.loss;
-            // Choose a color based on rank.
-            let color = match ind.rank {
-                0 => &RED,
-                1 => &MAGENTA,
-                2 => &BLUE,
-                3 => &GREEN,
-                _ => &BLACK,
-            };
-            EmptyElement::at((x, y))
-                + Circle::new((0, 0), 5, color.filled())
-                + Circle::new((0, 0), 5, ShapeStyle::from(&BLACK).stroke_width(1))
-        })
-    )?
-    .label("Individuals")
-    // // Add a legend to the plot and the size/color of the dot
-    .legend(|(x, y)| Circle::new((x, y), 5, ShapeStyle::from(&BLACK).stroke_width(1)));
-
-    // Configures the legend
-    chart.configure_series_labels()
-    .border_style(&BLACK)
-    .label_font(("sans-serif", 20).into_font())
-    .draw()?;
-
-    root.present()?;
-    println!("Plot saved to {}", filename);
-
-    Ok(())
-}
-
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct MooCombination {
@@ -591,15 +510,96 @@ pub fn elitism(super_population: &[MooCombination]) -> Vec<MooCombination> {
     new_population
 }
 
-pub fn init() {
-    let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; 
+/**
+ * Plots the population of individuals for the MOO algorithm.
+ * Each individual is represented as a point in a 2D space, where the x-axis represents the number of active features (columns) 
+ * and the y-axis represents the loss value.
+ * The points are colored based on their rank in the population.
+ */
+pub fn plot_population(population: &[MooCombination], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // Filter out individuals with infinite loss (empty feature sets).
+    let valid: Vec<&MooCombination> = population.iter().filter(|ind| !ind.loss.is_infinite()).collect();
+    if valid.is_empty() {
+        println!("No valid individuals to plot (all have infinite loss).");
+        return Ok(());
+    }
+
+    // Compute the range for the x-axis (number of active columns)
+    let x_min = valid.iter().map(|ind| ind.combination.iter().filter(|&&b| b).count() as i32).min().unwrap();
+    let x_max = valid.iter().map(|ind| ind.combination.iter().filter(|&&b| b).count() as i32).max().unwrap();
+
+    // Compute the range for the y-axis (loss)
+    let y_min = valid.iter().map(|ind| ind.loss).fold(f64::INFINITY, |a, b| a.min(b));
+    let y_max = valid.iter().map(|ind| ind.loss).fold(f64::NEG_INFINITY, |a, b| a.max(b));
+
+    // Create a drawing area with 800x600 pixels.
+    let root = BitMapBackend::new(filename, (800, 600)).into_drawing_area();
+    root.fill(&WHITE)?;
+
+    // Build the chart
+    let mut chart = ChartBuilder::on(&root)
+        .caption("NSGA-II Population", ("sans-serif", 50))
+        .margin(20)
+        .x_label_area_size(70)
+        .y_label_area_size(70)
+        .build_cartesian_2d(x_min..x_max + 1, y_min..y_max + 0.01)?;
+
+        chart.configure_mesh()
+        .x_desc("Number of Active Features (Columns)")
+        .y_desc("Loss")
+        
+        // Set the font size for the axis labels
+        .axis_desc_style(("sans-serif", 22).into_font())
+        
+        // Increase tick label font size
+        .x_label_style(("sans-serif", 20).into_font())
+        .y_label_style(("sans-serif", 20).into_font())
+        .draw()?;
+
+    // Plot each valid individual as a circle.
+    chart.draw_series(
+        valid.iter().map(|ind| {
+            // Compute x and y values
+            let x = ind.combination.iter().filter(|&&b| b).count() as i32;
+            let y = ind.loss;
+            // Choose a color based on rank.
+            let color = match ind.rank {
+                0 => &RED,
+                1 => &MAGENTA,
+                2 => &BLUE,
+                3 => &GREEN,
+                _ => &BLACK,
+            };
+            EmptyElement::at((x, y))
+                + Circle::new((0, 0), 5, color.filled())
+                + Circle::new((0, 0), 5, ShapeStyle::from(&BLACK).stroke_width(1))
+        })
+    )?
+    .label("Individuals")
+    // // Add a legend to the plot and the size/color of the dot
+    .legend(|(x, y)| Circle::new((x, y), 5, ShapeStyle::from(&BLACK).stroke_width(1)));
+
+    // Configures the legend
+    chart.configure_series_labels()
+    .border_style(&BLACK)
+    .label_font(("sans-serif", 20).into_font())
+    .draw()?;
+
+    root.present()?;
+    println!("Plot saved to {}", filename);
+
+    Ok(())
+}
+
+/// Initializes the MOO algorithm with a given dataset and parameters.
+pub fn run_moo_algorithm(file_path: &str, population_size: usize, generations: usize, generations_to_print: usize, gene_length: usize) -> Vec<MooCombination> {
     let lookup_table = read_data::read_data(file_path).unwrap();
-    let mut terminate = false;
-    let mut population = init_population(9, 500, &lookup_table); // Initialize the population
 
-    //TODO; set rank and crowding distance for each individual in the population P_0
+    // Initialize the population
+    let mut population = init_population(gene_length, population_size, &lookup_table); 
 
-    // Call the fast_nondominated_sort function to sort the population
+    
+    // Changes performed to the initial population
     let mut sorted_population = fast_nondominated_sort(population.clone());
 
     // Assgns the crowding distance for the sorted population
@@ -608,18 +608,11 @@ pub fn init() {
     let mut generation = 0;
     let mutation_probability = 0.1;
 
-    // Example usage: mutate the first individual
-    // bit_flip_mutation(&mut population[0], mutation_probability, &lookup_table);
-
     population = sorted_population.clone();
-
-    //TODO: fix possibility for individuals to get 0,0
-
-
-    while !terminate && generation < 1 {
+    while generation < generations {
         generation += 1;
-        // Prints for every 1 generations
-        if generation % 100 == 0 {
+        // Prints for every x generations
+        if generation % generations_to_print == 0 {
             println!("Generation: {}", generation);
             // for individual in &population {
             //    //all the attrs of the individual
@@ -655,9 +648,144 @@ pub fn init() {
     for individual in &final_sorted_population {
         println!("Combination: {:?}, Loss: {}, Rank: {}, Crowding Distance: {}", individual.combination, individual.loss, individual.rank, individual.crowding_distance);
     }
+    final_sorted_population
+
+}
+
+pub fn plot_histogram(population: &[MooCombination], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+    use std::collections::HashMap;
+    // Group individuals by the fitness tuple from get_fitness.
+    // For each group, store (loss, best_rank, frequency)
+    let mut groups: HashMap<String, (f64, i8, usize)> = HashMap::new();
+    for ind in population {
+        if ind.loss.is_infinite() {
+            continue;
+        }
+        // Use get_fitness to obtain (active features, loss)
+        let (active, loss) = get_fitness(ind);
+        let key = format!("({}, {:.3})", active, loss);
+        groups
+            .entry(key)
+            .and_modify(|e: &mut (f64, i8, usize)| {
+                e.1 = e.1.min(ind.rank);
+                e.2 += 1;
+            })
+            .or_insert((loss, ind.rank, 1));
+    }
+
+    // Convert the groups into a vector and sort by the key (the fitness tuple as string).
+    let mut group_vec: Vec<(String, f64, i8, usize)> = groups
+        .into_iter()
+        .map(|(key, (loss, rank, freq))| (key, loss, rank, freq))
+        .collect();
+    group_vec.sort_by(|a, b| a.0.cmp(&b.0));
+    
+    let num_groups = group_vec.len();
+    if num_groups == 0 {
+        println!("No valid groups to plot.");
+        return Ok(());
+    }
+
+    // Find the maximum frequency among the groups (for the y-axis)
+    let max_freq = group_vec.iter().map(|(_, _, _, freq)| *freq).max().unwrap();
+
+    // Create the drawing area with 800x600 pixels.
+    let root = BitMapBackend::new(filename, (800, 600)).into_drawing_area();
+    root.fill(&WHITE)?;
+
+    // Build the chart.
+    let mut chart = ChartBuilder::on(&root)
+        .caption("NSGA-II Final Population Histogram", ("sans-serif", 40))
+        .margin(20)
+        .x_label_area_size(70)
+        .y_label_area_size(70)
+        .build_cartesian_2d(0..num_groups as i32, 0..((max_freq + 1) as i32))?;
+
+
+    chart.configure_mesh()
+        .disable_mesh()
+        .x_desc("Fitness (Active Features, Loss)")
+        .y_desc("Frequency")
+        .x_label_formatter(&|&x| {
+            if (x as usize) < group_vec.len() {
+                format!("                    {}", group_vec[x as usize].0)  // prepend spaces
+            } else {
+                "".to_string()
+            }
+        })
+        .axis_desc_style(("sans-serif", 22).into_font())
+        .x_label_style(("sans-serif", 20).into_font())
+        .y_label_style(("sans-serif", 20).into_font())
+        .draw()?;
+
+    // Draw each group as a bar.
+    for (i, (_key, _loss, rank, freq)) in group_vec.iter().enumerate() {
+        let color = match rank {
+            0 => &RED,
+            1 => &MAGENTA,
+            2 => &BLUE,
+            3 => &GREEN,
+            _ => &BLACK,
+        };
+        let x0 = i as i32;
+        let x1 = x0 + 1;
+        let y0 = 0;
+        let y1 = *freq as i32;
+    
+        // Draw the filled rectangle.
+        chart.draw_series(std::iter::once(
+            Rectangle::new(
+                [(x0, y0), (x1, y1)],
+                ShapeStyle::from(color).filled()
+            )
+        ))?;
+        // Draw the border of the rectangle.
+        chart.draw_series(std::iter::once(
+            Rectangle::new(
+                [(x0, y0), (x1, y1)],
+                ShapeStyle::from(&BLACK).stroke_width(1)
+            )
+        ))?;
+    }
+
+    root.present()?;
+    println!("Histogram saved to {}", filename);
+    Ok(())
+}
+
+
+pub fn init() {
+
+    // 1) Loads the breast cancer dataset
+    let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; 
+
+    let population_size = 100; // Size of the population
+    let generations = 1000; // Number of generations to run
+    let generations_to_print = 100; // Print every x generations
+    let gene_length = 9; // Number of features (columns) in the dataset
+
+    let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
 
     // 8) Plot the final population
-    let plot_filename = "src/output/nsga_2.png";
+    let plot_filename = "src/output/moo/nsga_2_breast_cancer.png";
     plot_population(&final_sorted_population, plot_filename).unwrap();
+
+    // 2 LOads the wine dataset
+    let file_path = "XGB-Feature-Selection/output/wine_quality_combined";
+    let population_size = 100; // Size of the population
+    let generations = 1000; // Number of generations to run
+    let generations_to_print = 100; // Print every x generations
+    let gene_length = 11; // Number of features (columns) in the dataset
+
+    let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
+    // 8) Plot the final population
+    let plot_filename = "src/output/moo/nsga_2_wine_combined.png";
+    plot_population(&final_sorted_population, plot_filename).unwrap();
+
+    // 3) Plot the histogram for the final population
+    let histogram_filename = "src/output/moo/nsga_2_histogram.png";
+    plot_histogram(&final_sorted_population, histogram_filename).unwrap();
+    println!("Histogram saved to {}", histogram_filename);
+
 
 }

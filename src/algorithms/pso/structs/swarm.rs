@@ -1,6 +1,7 @@
 use crate::algorithms::pso::structs::particle::Particle; // Import particle struct
 pub use crate::structs::combination::Combination; // Import combination struct
 pub use crate::algorithms::pso::structs::pso_mode::UpdateMode; // Import update mode enum
+use std::time::Instant; // Import instant for timing
 
 #[derive(Debug, Clone)]
 pub struct Swarm {
@@ -101,26 +102,35 @@ impl Swarm {
         return ;
     }
 
-    pub fn run_multiple(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>, runs: usize, epoch_per_run: usize, ) {
+    pub fn run_multiple(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>, runs: usize, epoch_per_run: usize) {
         let mut model_solutions: Vec<Vec<bool>> = Vec::new();
         let mut model_losses: Vec<f64> = Vec::new();
-        let mut gen_to_solutons: Vec<usize> = Vec::new();
+        let mut gen_to_solutions: Vec<usize> = Vec::new();
+        let mut runtimes: Vec<f64> = Vec::new(); // Store runtime for each run
         
         for run in 0..runs {
+            let start_time = Instant::now(); // Start timer
+    
             self.perform_pso(w, c1, c2, epsilon, combinations, epoch_per_run, false, false);
             
+            let elapsed_time = start_time.elapsed().as_secs_f64(); // Get elapsed time in seconds
+            runtimes.push(elapsed_time); // Store runtime
+    
             model_solutions.push(self.best_position.clone());
             model_losses.push(self.best_loss);
-            gen_to_solutons.push(self.gen_to_best);
+            gen_to_solutions.push(self.gen_to_best);
         }
-
+    
         // Calculate Average no. of evaluations to solution
-        let avg_gen_to_solution: f64 = gen_to_solutons.iter().sum::<usize>() as f64 / runs as f64;
+        let avg_gen_to_solution: f64 = gen_to_solutions.iter().sum::<usize>() as f64 / runs as f64;
         println!("AES: {}", avg_gen_to_solution);
-
-        // Calculate Average loss
+    
         // Calculate Average loss
         let avg_loss: f64 = model_losses.iter().sum::<f64>() / runs as f64;
-        println!("MBF: {}", 1.0 - avg_loss);
+        println!("MBF: {:.3}", 1.0 - avg_loss);
+    
+        // Calculate and print average runtime
+        let avg_runtime: f64 = runtimes.iter().sum::<f64>() / runs as f64;
+        println!("Average Runtime: {:.6} seconds", avg_runtime);
     }
 }

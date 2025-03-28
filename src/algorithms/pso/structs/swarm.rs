@@ -7,6 +7,7 @@ pub struct Swarm {
     pub particles: Vec<Particle>, // Vector of particles in the swarm
     pub best_position: Vec<bool>, // Global best position found by the swarm
     pub best_loss: f64, // Global best loss found by the swarm
+    gen_to_best: usize, // Number of generations until the best solution is found
     pub size: usize, // Size of the swarm
     pub mode: UpdateMode, // Update mode (global or k-neighbor)
 }
@@ -15,13 +16,15 @@ impl Swarm {
     pub fn new(size: usize, particle_size: usize, mode: UpdateMode) -> Self {
         let particles = (0..size).map(|_| Particle::new(particle_size)).collect::<Vec<Particle>>();
         let best_position = vec![false; particle_size]; // Initialize global best position
-        let best_loss = f64::MAX; // Initialize global best loss to a large value
+        let best_loss: f64 = f64::MAX; // Initialize global best loss to a large value
+        let gen_to_best: usize = 0; // Number of generations until the best solution is found
 
         Swarm {
             particles,
             best_position,
             best_loss,
             size,
+            gen_to_best,
             mode,
         }
     }
@@ -32,11 +35,12 @@ impl Swarm {
         println!("Global Best Loss: {:?}", self.best_loss);
     }
 
-    pub fn update_global_best(&mut self) {
+    pub fn update_global_best(&mut self, epoch: usize) {
         for particle in &self.particles {
             if particle.best_loss < self.best_loss {
                 self.best_loss = particle.best_loss;
                 self.best_position = particle.best_position.clone();
+                self.gen_to_best = epoch;
             }
         }
     }
@@ -76,20 +80,47 @@ impl Swarm {
     }
 
     // Take a step in the swarm
-    pub fn step(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>) {
+    pub fn step(&mut self, epoch: usize, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>) {
         self.update_particles(w, c1, c2, epsilon, combinations);
-        self.update_global_best();
+        self.update_global_best(epoch);
     }
 
-    pub fn perform_pso(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>, epochs: usize) {
+    pub fn perform_pso(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>, epochs: usize, print_performance: bool, print_result: bool) {
         for epoch in 0..epochs {
-            self.step(w, c1, c2, epsilon, combinations);
-            if epoch % 100 == 0 {
+            self.step(epoch, w, c1, c2, epsilon, combinations);
+            if epoch % 100 == 0 && print_performance {
                 println!("Epoch {}: Global best loss: {}", epoch, self.best_loss);
                 println!("Epoch {}: Global best position: {:?}", epoch, self.best_position);
             }
         }
-        println!("PSO algorithm completed. Final global best loss: {}", self.best_loss);
-        println!("Final global best position: {:?}", self.best_position);
+        if print_result {
+            println!("PSO algorithm completed. Final global best loss: {}", self.best_loss);
+            println!("Number of generations until best solution: {}", self.gen_to_best);
+            println!("Final global best position: {:?}", self.best_position);
+        }
+        return ;
+    }
+
+    pub fn run_multiple(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>, runs: usize, epoch_per_run: usize, ) {
+        let mut model_solutions: Vec<Vec<bool>> = Vec::new();
+        let mut model_losses: Vec<f64> = Vec::new();
+        let mut gen_to_solutons: Vec<usize> = Vec::new();
+        
+        for run in 0..runs {
+            self.perform_pso(w, c1, c2, epsilon, combinations, epoch_per_run, false, false);
+            
+            model_solutions.push(self.best_position.clone());
+            model_losses.push(self.best_loss);
+            gen_to_solutons.push(self.gen_to_best);
+        }
+
+        // Calculate Average no. of evaluations to solution
+        let avg_gen_to_solution: f64 = gen_to_solutons.iter().sum::<usize>() as f64 / runs as f64;
+        println!("AES: {}", avg_gen_to_solution);
+
+        // Calculate Average loss
+        // Calculate Average loss
+        let avg_loss: f64 = model_losses.iter().sum::<f64>() / runs as f64;
+        println!("MBF: {}", 1.0 - avg_loss);
     }
 }

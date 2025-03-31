@@ -43,22 +43,30 @@ impl Particle {
     /// w: Inertia weight
     /// c1: Cognitive weight
     /// c2: Social weight 
-    pub fn update_pos(&mut self, global_best_position: &Vec<bool>, w: f64, c1: f64, c2: f64) {
-        
+    pub fn update_pos(&mut self, global_best_position: &[bool], w: f64, c1: f64, c2: f64) {
         for i in 0..self.velocity.len() {
             let r1 = rand::random::<f64>();
             let r2 = rand::random::<f64>();
+            
+            // We temporary change the vectors to floats to calculate the velocity
+            let best_pos_val = if self.best_position[i] { 1.0 } else { 0.0 };
+            let curr_pos_val = if self.position[i] { 1.0 } else { 0.0 };
+            let global_best_val = if global_best_position[i] { 1.0 } else { 0.0 };
+            
+            // Vectors representing local and global memory
+            let cognitive_component = c1 * r1 * (best_pos_val - curr_pos_val);
+            let social_component = c2 * r2 * (global_best_val - curr_pos_val);
 
-            let cognitive_component = c1 * r1 * (self.best_position[i] as i32 as f64 - self.position[i] as i32 as f64);
-            let social_component = c2 * r2 * (global_best_position[i] as i32 as f64 - self.position[i] as i32 as f64);
             self.velocity[i] = w * self.velocity[i] + cognitive_component + social_component;
         }
 
-        // Update position
+        // Update position based on probability (sigmoid-like behavior)
         for i in 0..self.position.len() {
-            self.position[i] = self.position[i] ^ (self.velocity[i] > 0.0);
+            let probability = 1.0 / (1.0 + (-self.velocity[i]).exp()); // Sigmoid function
+            self.position[i] = rand::random::<f64>() < probability;
         }
     }
+
 
     /// Estimates fitness of a Particle
     /// 
@@ -68,7 +76,12 @@ impl Particle {
         let x = self.position.iter().map(|&x| x as i32 as f64).collect::<Vec<f64>>();
         
         // Set T to the Loss of the combination matching current position
-        let h_eT: f64 = combinations.iter().find(|&c| c.combination == self.position).unwrap().loss;
+        let h_eT: f64 = combinations
+            .iter()
+            .find(|&c| c.combination == self.position)
+            .map(|c| c.loss)
+            .unwrap_or(f64::MAX);
+
 
         // Set h_p to the number of columns used
         let h_p: f64 = x.iter().sum::<f64>();

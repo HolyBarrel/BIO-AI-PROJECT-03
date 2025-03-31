@@ -1,24 +1,24 @@
-use crate::algorithms::pso::structs::particle::Particle; // Import particle struct
-pub use crate::structs::combination::Combination; // Import combination struct
-pub use crate::algorithms::pso::structs::pso_mode::UpdateMode; // Import update mode enum
-use std::time::Instant; // Import instant for timing
+use crate::algorithms::pso::structs::particle::Particle;
+pub use crate::structs::combination::Combination;
+pub use crate::algorithms::pso::structs::pso_mode::UpdateMode;
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct Swarm {
-    pub particles: Vec<Particle>, // Vector of particles in the swarm
-    pub best_position: Vec<bool>, // Global best position found by the swarm
-    pub best_loss: f64, // Global best loss found by the swarm
-    gen_to_best: usize, // Number of generations until the best solution is found
-    pub size: usize, // Size of the swarm
-    pub mode: UpdateMode, // Update mode (global or k-neighbor)
+    pub particles: Vec<Particle>,   // Vector of particles in the swarm
+    pub best_position: Vec<bool>,   // Global best position found by the swarm
+    pub best_loss: f64,             // Global best loss found by the swarm
+    gen_to_best: usize,             // Number of generations until the best solution is found
+    pub size: usize,                // Size of the swarm
+    pub mode: UpdateMode,           // Update mode (global or k-neighbor)
 }
 
 impl Swarm {
     pub fn new(size: usize, particle_size: usize, mode: UpdateMode) -> Self {
         let particles = (0..size).map(|_| Particle::new(particle_size)).collect::<Vec<Particle>>();
-        let best_position = vec![false; particle_size]; // Initialize global best position
-        let best_loss: f64 = f64::MAX; // Initialize global best loss to a large value
-        let gen_to_best: usize = 0; // Number of generations until the best solution is found
+        let best_position = vec![false; particle_size];
+        let best_loss: f64 = f64::MAX; 
+        let gen_to_best: usize = 0;
 
         Swarm {
             particles,
@@ -48,11 +48,11 @@ impl Swarm {
 
     fn find_k_nearest_best(&self, particle_index: usize, k: usize) -> Vec<bool> {
         let mut neighbors = self.particles.iter().enumerate()
-            .filter(|&(i, _)| i != particle_index) // Exclude self
+            .filter(|&(i, _)| i != particle_index) 
             .map(|(i, p)| (i, p.best_loss, &p.best_position))
             .collect::<Vec<_>>();
         
-        neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap()); // Sort by best loss (ascending)
+        neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
         
         neighbors.into_iter().take(k).map(|(_, _, pos)| pos.clone()).next().unwrap_or_else(|| self.particles[particle_index].best_position.clone())
     }

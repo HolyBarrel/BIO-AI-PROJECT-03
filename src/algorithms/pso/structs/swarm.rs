@@ -9,7 +9,6 @@ pub struct Swarm {
     pub best_position: Vec<bool>,   // Global best position found by the swarm
     pub best_loss: f64,             // Global best loss found by the swarm
     gen_to_best: usize,             // Number of generations until the best solution is found
-    pub size: usize,                // Size of the swarm
     pub mode: UpdateMode,           // Update mode (global or k-neighbor)
 }
 
@@ -24,16 +23,9 @@ impl Swarm {
             particles,
             best_position,
             best_loss,
-            size,
             gen_to_best,
             mode,
         }
-    }
-
-    pub fn print(&self) {
-        println!("Swarm Size: {:?}", self.size);
-        println!("Global Best Position: {:?}", self.best_position);
-        println!("Global Best Loss: {:?}", self.best_loss);
     }
 
     pub fn update_global_best(&mut self, epoch: usize) {
@@ -108,7 +100,7 @@ impl Swarm {
         let mut gen_to_solutions: Vec<usize> = Vec::new();
         let mut runtimes: Vec<f64> = Vec::new(); // Store runtime for each run
     
-        for run in 0..runs {
+        for _run in 0..runs {
             // Reset the swarm's state before starting each run
             self.best_position = vec![false; self.best_position.len()];
             self.best_loss = f64::MAX;

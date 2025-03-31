@@ -91,13 +91,13 @@ impl Swarm {
         for epoch in 0..epochs {
             self.step(epoch, w, c1, c2, epsilon, combinations);
             if epoch % 100 == 0 && print_performance {
-                println!("Epoch {}: Global best cost: {}", epoch, self.best_cost);
+                println!("Epoch {}: Global best cost: {:.6}", epoch, self.best_cost);
                 println!("Epoch {}: Global best position: {:?}", epoch, self.best_position);
             }
         }
         if print_result {
-            println!("PSO algorithm completed. Final global best cost: {}", self.best_cost);
-            println!("Number of generations until best solution: {}", self.gen_to_best);
+            println!("PSO algorithm completed. Final global best cost: {:.6}", self.best_cost);
+            println!("Number of generations until best solution: {:.6}", self.gen_to_best);
             println!("Final global best position: {:?}", self.best_position);
         }
         return ;
@@ -151,19 +151,21 @@ impl Swarm {
             "Best solution: {:?}",
             model_solutions[best_solution_index].iter().map(|&b| b as u8).collect::<Vec<u8>>()
         );
-        println!("Best solution loss: {}", combinations
+        println!("Best solution loss: {:.6}", combinations
             .iter()
             .find(|comb| comb.combination == model_solutions[best_solution_index])
             .map(|comb| comb.loss)
             .unwrap_or(f64::NAN)
         );
-        
-        let best_solution_loss = model_costs[best_solution_index];
-        println!("Best solution cost: {}", best_solution_loss);
+    
+        let best_solution_cost = model_costs[best_solution_index];
+        println!("Best solution cost: {:.6}", best_solution_cost);
     
         // Mean solution with loss
         println!("----------------------------------------");
         let mean_solution_cost = model_costs.iter().copied().sum::<f64>() / model_costs.len() as f64;
+    
+        // Find the index of the best solution with minimum cost (model_costs) to find the mean solution
         let mean_solution_index = model_costs
             .iter()
             .enumerate()
@@ -171,14 +173,22 @@ impl Swarm {
             .map(|(i, _)| i)
             .unwrap_or(0);
         let mean_solution = model_solutions[mean_solution_index].clone();
+    
         println!(
             "Mean solution: {:?}",
             mean_solution.iter().map(|&b| b as u8).collect::<Vec<u8>>()
         );
-        println!("Mean solution loss: {}", mean_solution_cost);
+    
+        // Calculate the mean solution's loss from the `combinations` vector
+        let mean_solution_loss = combinations
+            .iter()
+            .find(|comb| comb.combination == mean_solution)
+            .map(|comb| comb.loss)
+            .unwrap_or(f64::NAN);
+        
+        println!("Mean solution loss: {:.6}", mean_solution_loss);
     
         // Find the corresponding model_costs for the best solution and mean solution
-        let mean_solution_cost_for_model = mean_solution_cost;
-        println!("Mean solution cost: {}", mean_solution_cost_for_model);
+        println!("Mean solution cost: {:.6}", mean_solution_cost);
     }    
 }

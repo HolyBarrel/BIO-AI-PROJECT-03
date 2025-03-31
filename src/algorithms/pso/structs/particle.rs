@@ -3,10 +3,10 @@ pub use crate::structs::combination::Combination;
 #[derive(Debug, Clone)]
 pub struct Particle {
     pub position: Vec<bool>, // Current position of the particle
-    pub loss: f64, // Current loss of the particle
+    pub cost: f64, // Current cost of the particle
     pub velocity: Vec<f64>, // Velocity of the particle
     pub best_position: Vec<bool>, // Stored best position for the particle
-    pub best_loss: f64, // Stored best loss for the particle
+    pub best_cost: f64, // Stored best cost for the particle
 }
 
 // Functions
@@ -15,16 +15,16 @@ impl Particle {
     pub fn new(size: usize) -> Self {
         let position = (0..size).map(|_| rand::random::<bool>()).collect::<Vec<bool>>();
         let velocity = (0..size).map(|_| rand::random::<f64>() * 2.0 - 1.0).collect();
-        let loss = f64::MAX; // Initialize loss to a large value
+        let cost = f64::MAX; // Initialize cost to a large value
         let best_position = position.clone(); // Initialize best position to current position
-        let best_loss = loss; // Initialize best loss to current loss
+        let best_cost = cost; // Initialize best cost to current cost
 
         Particle {
             position,
-            loss,
+            cost,
             velocity,
             best_position,
-            best_loss,
+            best_cost,
         }
     }
 
@@ -62,11 +62,11 @@ impl Particle {
     /// Estimates fitness of a Particle
     /// 
     /// epsilon: represents the weight of the penalty for the number of features used
-    /// combinations: lookup table for the possible combinations and their losses
-    pub fn update_loss(&mut self, epsilon: f64, combinations: &Vec<Combination>) {
+    /// combinations: lookup table for the possible combinations and their costs
+    pub fn update_cost(&mut self, epsilon: f64, combinations: &Vec<Combination>) {
         let x = self.position.iter().map(|&x| x as i32 as f64).collect::<Vec<f64>>();
         
-        // Set T to the Loss of the combination matching current position
+        // Set T to the Cost of the combination matching current position
         let h_e_t: f64 = combinations
             .iter()
             .find(|&c| c.combination == self.position)
@@ -80,9 +80,9 @@ impl Particle {
         // Rerturn h_e * T(x) + epsilon * h_p(x)
         let fit: f64 = h_e_t + epsilon * h_p;
         
-        self.loss = fit; // Update the loss of the particle
-        if fit < self.best_loss {
-            self.best_loss = fit; // Update the best loss of the particle
+        self.cost = fit;
+        if fit < self.best_cost {
+            self.best_cost = fit;                       // Update the best cost of the candidate solution
             self.best_position = self.position.clone(); // Update the best position of the particle
         }
     }

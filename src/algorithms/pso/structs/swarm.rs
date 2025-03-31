@@ -159,7 +159,7 @@ impl Swarm {
         );
         
         let best_solution_loss = model_costs[best_solution_index];
-        println!("Best solution model loss: {}", best_solution_loss);
+        println!("Best solution cost: {}", best_solution_loss);
     
         // Mean solution with loss
         println!("----------------------------------------");

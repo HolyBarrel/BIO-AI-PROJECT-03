@@ -10,6 +10,19 @@ const TOURNAMENT_SIZE: usize = 3;
 const W : f64 = 0.5;
 const MAX_TIME : f64 = 1.0;
 
+/// Generates a population of candidate solutions represented as vectors of booleans.
+///
+/// Each solution in the population is a vector of `n` booleans generated at random.
+/// The overall population size is determined by the constant `POPULATION_SIZE`.
+///
+/// # Parameters
+///
+/// * `n` - The number of boolean elements in each candidate solution.
+///
+/// # Returns
+///
+/// A vector containing `POPULATION_SIZE` candidate solutions, where each solution is a vector of `n` booleans.
+///
 pub fn generate_population(n: usize) -> Vec<Vec<bool>>{
 
     let mut rng = rand::rng();
@@ -24,6 +37,19 @@ pub fn generate_population(n: usize) -> Vec<Vec<bool>>{
     return population;
 }
 
+/// Calculates the cost function of a candidate solution.
+/// 
+/// The cost function is a weighted sum of the loss and the number of active features in the solution.
+/// The loss is normalized by the largest loss in the dataset.
+/// 
+/// # Parameters
+/// 
+/// * `combinations` - A vector of `Combination` structs representing the dataset.
+/// * `solution` - A vector of booleans representing the candidate solution.
+/// 
+/// # Returns
+/// 
+/// The cost of the candidate solution.
 pub fn cost_function(combinations: &Vec<Combination>, solution: &Vec<bool>, largest_loss:f64, w: f64) -> f64 {
     let mut loss = get_loss(combinations, solution);
     loss = loss / largest_loss;
@@ -38,6 +64,20 @@ pub fn cost_function(combinations: &Vec<Combination>, solution: &Vec<bool>, larg
     return cost;
 }
 
+
+/// Selects a candidate solution from the population using tournament selection.
+/// '
+/// The tournament selection process involves selecting a random subset of solutions from the population
+/// 
+/// # Parameters
+/// 
+/// * `population` - A vector of candidate solutions.
+/// * `combinations` - A vector of `Combination` structs representing the dataset.
+/// * `largest_loss` - The largest loss in the dataset.
+/// 
+/// # Returns
+/// 
+/// The selected candidate solution.
 pub fn tournament_selection(population: &Vec<Vec<bool>>, combinations: &Vec<Combination>, largest_loss:f64) -> Vec<bool> {
     let mut rng = rand::rng();
     let mut best_solution = population[rng.random_range(0..population.len())].clone();
@@ -53,6 +93,19 @@ pub fn tournament_selection(population: &Vec<Vec<bool>>, combinations: &Vec<Comb
     return best_solution;
 }
 
+
+/// Performs single-point crossover between two parent solutions.
+/// 
+/// The crossover point is randomly selected, and the children are created by combining the first part of one parent with the second part of the other parent.
+/// 
+/// # Parameters
+/// 
+/// * `parent1` - The first parent solution.
+/// * `parent2` - The second parent solution.
+/// 
+/// # Returns
+/// 
+/// A tuple containing the two child solutions.
 pub fn single_point_crossover(parent1: &Vec<bool>, parent2: &Vec<bool>) -> (Vec<bool>, Vec<bool>) {
     let mut rng = rand::rng();
     let crossover_point = rng.random_range(0..parent1.len());
@@ -70,6 +123,18 @@ pub fn single_point_crossover(parent1: &Vec<bool>, parent2: &Vec<bool>) -> (Vec<
     return (child1, child2);
 }
 
+/// Calculates the Hamming distance between two candidate solutions.
+/// 
+/// The Hamming distance is the number of positions at which the two solutions differ.
+/// 
+/// # Parameters
+/// 
+/// * `solution1` - The first candidate solution.
+/// * `solution2` - The second candidate solution.
+/// 
+/// # Returns
+/// 
+/// The Hamming distance between the two solutions.
 pub fn hamming_distance(solution1: &Vec<bool>, solution2: &Vec<bool>) -> usize {
     let mut distance = 0;
     for i in 0..solution1.len() {
@@ -80,6 +145,15 @@ pub fn hamming_distance(solution1: &Vec<bool>, solution2: &Vec<bool>) -> usize {
     return distance;
 }
 
+
+/// Performs bit-flip mutation on a candidate solution.
+/// 
+/// Each bit in the solution has a probability of being flipped, determined by the mutation rate.
+/// 
+/// # Parameters
+/// 
+/// * `solution` - The candidate solution to be mutated.
+/// * `mutation_rate` - The probability of each bit being flipped.
 pub fn bit_flip_mutation(solution: &mut Vec<bool>, mutation_rate: f64) {
     let mut rng = rand::rng();
     for i in 0..solution.len() {
@@ -89,6 +163,17 @@ pub fn bit_flip_mutation(solution: &mut Vec<bool>, mutation_rate: f64) {
     }
 }
 
+
+/// Returns the loss of a candidate solution from the dataset.
+/// 
+/// # Parameters
+/// 
+/// * `combinations` - A vector of `Combination` structs representing the dataset.
+/// * `solution` - The candidate solution.
+/// 
+/// # Returns
+/// 
+/// The loss of the candidate solution.
 pub fn get_loss(combinations: &Vec<Combination>, solution: &Vec<bool>) -> f64 {
     for combination in combinations {
         if combination.combination == *solution {
@@ -98,6 +183,18 @@ pub fn get_loss(combinations: &Vec<Combination>, solution: &Vec<bool>) -> f64 {
     return f64::MAX;
 }
 
+
+/// Runs the genetic algorithm to optimize the feature selection problem.
+/// 
+/// The genetic algorithm uses a population of candidate solutions, each represented as a vector of booleans.
+/// 
+/// # Parameters
+/// 
+/// * `combinations` - A vector of `Combination` structs representing the dataset.
+/// 
+/// # Returns
+/// 
+/// A tuple containing the best solution found, the cost of the best solution, and a vector of costs and losses over the generations.
 pub fn genetic_algorithm(combinations: &Vec<Combination>) -> (Combination, f64, Vec<(f64, f64)>) {
     let n = combinations[0].combination.len();
     let mutation_rate = 1.0 / n as f64;
@@ -168,6 +265,19 @@ pub fn genetic_algorithm(combinations: &Vec<Combination>) -> (Combination, f64, 
 
 }
 
+
+/// Runs the genetic algorithm to optimize the feature selection problem with a time limit.
+/// 
+/// The genetic algorithm uses a population of candidate solutions, each represented as a vector of booleans.
+/// 
+/// # Parameters
+/// 
+/// * `combinations` - A vector of `Combination` structs representing the dataset.
+/// * `time_limit_secs` - The time limit in seconds.
+/// 
+/// # Returns
+/// 
+/// A tuple containing the best solution found, the cost of the best solution, a vector of costs and losses over the generations, and the number of generations.
 pub fn genetic_algorithm_time(
     combinations: &Vec<Combination>,
     time_limit_secs: f64
@@ -183,14 +293,11 @@ pub fn genetic_algorithm_time(
 
     let mut population = generate_population(n);
     let mut costs = Vec::new();
-    // Initialize best_solution with the first individual in the population
     let mut best_solution: Combination = Combination {
         combination: population[0].clone(),
         loss: get_loss(&combinations, &population[0]),
     };
     let mut best_cost = cost_function(&combinations, &best_solution.combination, largest_loss, W);
-
-    // Check the initial population for the best solution
     for solution in &population {
         let cost = cost_function(&combinations, solution, largest_loss, W);
         if cost < best_cost {
@@ -203,10 +310,9 @@ pub fn genetic_algorithm_time(
     println!("Initial Best Cost: {}", best_cost);
 
     let start_time = std::time::Instant::now();
-    let mut generation: usize = 0;
+    let generation: usize = 0;
     let mut best_generation: usize = 0;
-    
-    // Run until the elapsed time exceeds the given time limit.
+
     while start_time.elapsed().as_secs_f64() < time_limit_secs {
         let mut new_population = Vec::new();
         for _ in 0..POPULATION_SIZE {
@@ -237,8 +343,6 @@ pub fn genetic_algorithm_time(
         }
 
         population = new_population;
-
-        // Update the best solution from the new population.
         for solution in &population {
             let cost = cost_function(&combinations, solution, largest_loss, W);
             if cost < best_cost {
@@ -252,25 +356,27 @@ pub fn genetic_algorithm_time(
     }
     println!("Final Best Cost: {}", best_cost);
 
-    // Final push (optional, depending on your logging preference)
     costs.push((best_cost, best_solution.loss));
     (best_solution, best_cost, costs, best_generation)
 }
 
 
+/// Plots the costs and losses over the generations.
+/// 
+/// # Parameters
+/// 
+/// * `cost_loss` - A vector of tuples containing the cost and loss values over the generations.
+/// * `filename` - The name of the output file.
 fn plot_costs_and_loss(cost_loss: &Vec<(f64, f64)>, filename: &str) {
     use plotters::prelude::*;
 
-    // Create a drawing area and fill it with white.
     let root_area = BitMapBackend::new(filename, (800, 600))
         .into_drawing_area();
     root_area.fill(&WHITE).unwrap();
 
-    // x-axis range is the number of generations.
     let generations = cost_loss.len();
     let x_range = 0..generations;
 
-    // Determine y-axis range based on cost and loss values.
     let mut y_min = std::f64::MAX;
     let mut y_max = std::f64::MIN;
     for (cost, loss) in cost_loss.iter() {
@@ -278,7 +384,6 @@ fn plot_costs_and_loss(cost_loss: &Vec<(f64, f64)>, filename: &str) {
         y_max = y_max.max(*cost).max(*loss);
     }
 
-    // If the range is too narrow, manually expand it.
     if (y_max - y_min).abs() < 1e-6 {
         y_min -= 0.01;
         y_max += 0.01;
@@ -288,7 +393,6 @@ fn plot_costs_and_loss(cost_loss: &Vec<(f64, f64)>, filename: &str) {
         y_max += margin;
     }
 
-    // Build the chart.
     let mut chart = ChartBuilder::on(&root_area)
         .caption("Cost and Loss Over Generations", ("sans-serif", 30))
         .margin(20)
@@ -303,7 +407,6 @@ fn plot_costs_and_loss(cost_loss: &Vec<(f64, f64)>, filename: &str) {
         .draw()
         .unwrap();
 
-    // Plot the "Cost" line in red.
     chart.draw_series(LineSeries::new(
         cost_loss.iter().enumerate().map(|(i, &(cost, _))| (i, cost)),
         &RED,
@@ -311,7 +414,7 @@ fn plot_costs_and_loss(cost_loss: &Vec<(f64, f64)>, filename: &str) {
       .label("Cost")
       .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
 
-    // Plot the "Loss" line in blue.
+
     chart.draw_series(LineSeries::new(
         cost_loss.iter().enumerate().map(|(i, &(_, loss))| (i, loss)),
         &BLUE,
@@ -319,21 +422,29 @@ fn plot_costs_and_loss(cost_loss: &Vec<(f64, f64)>, filename: &str) {
       .label("Loss")
       .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
 
-    // Configure and draw the legend.
     chart.configure_series_labels()
         .border_style(&BLACK)
         .background_style(&WHITE.mix(0.8))
         .draw()
         .unwrap();
 
-    // Save the drawing.
     root_area.present().unwrap();
 }
 
+/// Plots a histogram of the population.
+///
+/// The histogram shows the distribution of the number of active features and the loss values in the population.
+/// 
+/// # Parameters
+/// 
+/// * `population` - A vector of `Combination` structs representing the population.
+/// * `filename` - The name of the output file.
+/// 
+/// # Returns
+/// 
+/// A `Result` containing `Ok(())` if the histogram was successfully saved, or an error message if an error occurred.
 pub fn plot_histogram(population: &[Combination], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
     use std::collections::HashMap;
-    // Group individuals by the fitness tuple from get_fitness.
-    // For each group, store (loss, best_rank, frequency)
     let mut groups: HashMap<String, (f64, i8, usize)> = HashMap::new();
     for ind in population {
         if ind.loss.is_infinite() {
@@ -364,14 +475,10 @@ pub fn plot_histogram(population: &[Combination], filename: &str) -> Result<(), 
         return Ok(());
     }
 
-    // Find the maximum frequency among the groups (for the y-axis)
     let max_freq = group_vec.iter().map(|(_, _, _, freq)| *freq).max().unwrap();
-
-    // Create the drawing area with 800x600 pixels.
     let root = BitMapBackend::new(filename, (800, 600)).into_drawing_area();
     root.fill(&WHITE)?;
 
-    // Build the chart.
     let mut chart = ChartBuilder::on(&root)
         .caption("Individuals histogram", ("sans-serif", 30))
         .margin(20)
@@ -396,7 +503,6 @@ pub fn plot_histogram(population: &[Combination], filename: &str) -> Result<(), 
         .y_label_style(("sans-serif", 20).into_font())
         .draw()?;
 
-    // Draw each group as a bar.
     for (i, (_key, _loss, rank, freq)) in group_vec.iter().enumerate() {
         let color = match rank {
             0 => &RED,
@@ -410,14 +516,12 @@ pub fn plot_histogram(population: &[Combination], filename: &str) -> Result<(), 
         let y0 = 0;
         let y1 = *freq as i32;
     
-        // Draw the filled rectangle.
         chart.draw_series(std::iter::once(
             Rectangle::new(
                 [(x0, y0), (x1, y1)],
                 ShapeStyle::from(color).filled()
             )
         ))?;
-        // Draw the border of the rectangle.
         chart.draw_series(std::iter::once(
             Rectangle::new(
                 [(x0, y0), (x1, y1)],
@@ -432,6 +536,23 @@ pub fn plot_histogram(population: &[Combination], filename: &str) -> Result<(), 
 }
 
 
+/// Optimizes the feature selection problem using the single output optimization technique.
+/// 
+/// The single output optimization technique involves running the genetic algorithm on three datasets:
+/// - breast_cancer_wisconsin_original
+/// - titanic
+/// - wine_quality_combined
+/// 
+/// The best solution, best cost, and costs over the generations are printed to the console.
+/// 
+/// 
+/// # Parameters
+/// 
+/// * `path_vec` - An array of strings representing the paths to the datasets.
+/// 
+/// # Returns
+/// 
+/// A tuple containing the best solution found, the cost of the best solution, and a vector of costs and losses over the generations.
 pub(crate) fn single_output_optimization(path_vec: [&str; 3]) {
 
     for path in path_vec.iter() {
@@ -446,6 +567,23 @@ pub(crate) fn single_output_optimization(path_vec: [&str; 3]) {
 }
 
 
+/// Optimizes the feature selection problem using the single output optimization technique with a time limit.
+/// 
+/// The single output optimization technique involves running the genetic algorithm on three datasets:
+/// 
+/// - breast_cancer_wisconsin_original
+/// - titanic
+/// - wine_quality_combined
+/// 
+/// The best solution, best cost, costs over the generations, and the number of generations are printed to the console.
+/// 
+/// # Parameters
+/// 
+/// * `path_vec` - An array of strings representing the paths to the datasets.
+/// 
+/// # Returns
+/// 
+/// A tuple containing the best solution found, the cost of the best solution, a vector of costs and losses over the generations, and the number of generations.
 pub(crate) fn multi_run_validation(path: &str){
     let combinations = read_data(&format!("XGB-Feature-Selection/output/{}", path)).unwrap();
     let mut best_solutions = Vec::new();
@@ -512,6 +650,17 @@ pub(crate) fn multi_run_validation(path: &str){
 }
 
 
+/// Saves the mean feature count, mean loss, mean best cost, mean evaluation number, and mean best solution to a CSV file.
+/// 
+/// # Parameters
+/// 
+/// * `path` - The path to the output CSV file.
+/// * `mean_feature_count` - The mean number of active features in the best solutions.
+/// * `mean_loss` - The mean loss of the best solutions.
+/// * `mean_best_cost` - The mean cost of the best solutions.
+/// * `mean_evaluation_number` - The mean number of evaluations required to find the best solutions.
+/// * `mean_best_solution` - The mean best solution found.
+/// 
 fn save_data_to_csv(path: &str, mean_feature_count: f64, mean_loss: f64, mean_best_cost: f64, mean_evaluation_number: f64, mean_best_solution: Combination){
     let mut wtr = csv::Writer::from_path(path).unwrap();
     wtr.write_record(&["Mean Feature Count", "Mean Loss", "Mean Best Cost", "Mean Evaluation Number", "Mean Best Solution"]).unwrap();

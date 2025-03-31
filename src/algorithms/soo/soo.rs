@@ -36,8 +36,6 @@ pub fn cost_function(combinations: &Vec<Combination>, solution: &Vec<bool>, larg
     let feature_count = feature_count as f64 / solution.len() as f64;
     let cost = w * loss + (1.0 - w) * feature_count;
     return cost;
-
-
 }
 
 pub fn tournament_selection(population: &Vec<Vec<bool>>, combinations: &Vec<Combination>, largest_loss:f64) -> Vec<bool> {
@@ -509,15 +507,15 @@ pub(crate) fn multi_run_validation(path: &str){
     let output_path = format!("src/output/soo/{}_histogram.png", path);
     plot_histogram(&best_solutions, &output_path).unwrap();
     let csv_path = format!("src/output/soo/{}.csv", path);
-    save_data_to_csv(&csv_path, costs.len(), mean_feature_count, mean_loss, mean_best_cost, mean_evaluation_number,mean_best_solution);
+    save_data_to_csv(&csv_path, mean_feature_count, mean_loss, mean_best_cost, mean_evaluation_number,mean_best_solution);
     
 }
 
 
-fn save_data_to_csv(path: &str,run_counts:usize, mean_feature_count: f64, mean_loss: f64, mean_best_cost: f64, mean_evaluation_number: f64, mean_best_solution: Combination){
+fn save_data_to_csv(path: &str, mean_feature_count: f64, mean_loss: f64, mean_best_cost: f64, mean_evaluation_number: f64, mean_best_solution: Combination){
     let mut wtr = csv::Writer::from_path(path).unwrap();
-    wtr.write_record(&["Run Counts","Mean Feature Count", "Mean Loss", "Mean Best Cost", "Mean Evaluation Number", "Mean Best Solution"]).unwrap();
-    wtr.write_record(&[run_counts.to_string() ,mean_feature_count.to_string(), mean_loss.to_string(), mean_best_cost.to_string(), mean_evaluation_number.to_string(), mean_best_solution.to_string()]).unwrap();
+    wtr.write_record(&["Mean Feature Count", "Mean Loss", "Mean Best Cost", "Mean Evaluation Number", "Mean Best Solution"]).unwrap();
+    wtr.write_record(&[mean_feature_count.to_string(), mean_loss.to_string(), mean_best_cost.to_string(), mean_evaluation_number.to_string(), mean_best_solution.to_string()]).unwrap();
     wtr.flush().unwrap();
 
 

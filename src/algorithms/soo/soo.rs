@@ -8,7 +8,7 @@ const POPULATION_SIZE: usize = 100;
 const MAX_GENERATIONS: usize = 1000;
 const TOURNAMENT_SIZE: usize = 3;
 const W : f64 = 0.5;
-const MAX_TIME : f64 = 5.0;
+const MAX_TIME : f64 = 1.0;
 
 pub fn generate_population(n: usize) -> Vec<Vec<bool>>{
 
@@ -247,16 +247,12 @@ pub fn genetic_algorithm_time(
                 best_solution.combination = solution.clone();
                 best_solution.loss = get_loss(&combinations, solution);
                 best_cost = cost;
-                best_generation = generation;
+                best_generation = generation+1;
             }
         }
         costs.push((best_cost, best_solution.loss));
-
-        if generation % 1000 == 0 {
-            println!("Generation: {}, Best Cost: {}", generation, best_cost);
-        }
-        generation += 1;
     }
+    println!("Final Best Cost: {}", best_cost);
 
     // Final push (optional, depending on your logging preference)
     costs.push((best_cost, best_solution.loss));
@@ -459,7 +455,7 @@ pub(crate) fn multi_run_validation(path: &str){
     let mut feauter_counts = Vec::new();
     let mut losses = Vec::new();
     let mut best_generations = Vec::new();
-    for _ in 0..10{
+    for _ in 0..100{
         let (solution, cost, _, best_generation) = genetic_algorithm_time(&combinations, MAX_TIME);
         best_solutions.push(solution.clone());
         costs.push(cost);
@@ -478,6 +474,7 @@ pub(crate) fn multi_run_validation(path: &str){
     let mut mean_feature_count = 0.0;
     let mut mean_loss = 0.0;
     let mut mean_evaluation_number = 0.0;
+    let mut mean_best_solution = best_solutions[0].clone();
 
     for cost in &costs {
         mean_best_cost += *cost;
@@ -495,6 +492,14 @@ pub(crate) fn multi_run_validation(path: &str){
         mean_evaluation_number += *evaluation_number as f64;
     }
     mean_evaluation_number /= best_generations.len() as f64;
+    let mut max_count = 0;
+    for solution in &best_solutions {
+        let count = best_solutions.iter().filter(|&s| s == solution).count();
+        if count > max_count {
+            max_count = count;
+            mean_best_solution = solution.clone();
+        }
+    }
 
     mean_best_cost /= best_solutions.len() as f64;
     println!("Mean Best Cost: {}", mean_best_cost);
@@ -504,15 +509,15 @@ pub(crate) fn multi_run_validation(path: &str){
     let output_path = format!("src/output/soo/{}_histogram.png", path);
     plot_histogram(&best_solutions, &output_path).unwrap();
     let csv_path = format!("src/output/soo/{}.csv", path);
-    save_data_to_csv(&csv_path, costs.len(), mean_feature_count, mean_loss, mean_best_cost, mean_evaluation_number);
+    save_data_to_csv(&csv_path, costs.len(), mean_feature_count, mean_loss, mean_best_cost, mean_evaluation_number,mean_best_solution);
     
 }
 
 
-fn save_data_to_csv(path: &str,run_counts:usize, mean_feature_count: f64, mean_loss: f64, mean_best_cost: f64, mean_evaluation_number: f64){
+fn save_data_to_csv(path: &str,run_counts:usize, mean_feature_count: f64, mean_loss: f64, mean_best_cost: f64, mean_evaluation_number: f64, mean_best_solution: Combination){
     let mut wtr = csv::Writer::from_path(path).unwrap();
-    wtr.write_record(&["Run Counts","Mean Feature Count", "Mean Loss", "Mean Best Cost", "Mean Evaluation Number"]).unwrap();
-    wtr.write_record(&[run_counts.to_string() ,mean_feature_count.to_string(), mean_loss.to_string(), mean_best_cost.to_string(), mean_evaluation_number.to_string()]).unwrap();
+    wtr.write_record(&["Run Counts","Mean Feature Count", "Mean Loss", "Mean Best Cost", "Mean Evaluation Number", "Mean Best Solution"]).unwrap();
+    wtr.write_record(&[run_counts.to_string() ,mean_feature_count.to_string(), mean_loss.to_string(), mean_best_cost.to_string(), mean_evaluation_number.to_string(), mean_best_solution.to_string()]).unwrap();
     wtr.flush().unwrap();
 
 

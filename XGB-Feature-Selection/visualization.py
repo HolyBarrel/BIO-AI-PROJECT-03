@@ -12,6 +12,7 @@ from sklearn.decomposition import PCA
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import ConstantKernel as C, Matern
 import numpy as np
+import plotly.express as px
 
 paths = ["output/breast_cancer_wisconsin_original","output/titanic", "output/wine_quality_combined" ]
 
@@ -188,7 +189,99 @@ def plot_feature_count_loss_combined(df, title):
     plt.savefig(f"visualizations/scatter/combined/{title}_scatter_plot.png")
     plt.close()
    
+def plot_3d_scatter_soo(df, title):
+    df = df.copy()
+    df['selected_features'] = df.drop(columns=['Loss']).sum(axis=1)
+    df['loss_norm'] = (df['Loss']) / (df['Loss'].max())
+    df['features_norm'] = (df['selected_features']) / (df['selected_features'].max())
 
+    df['composite'] = 0.5 * df['loss_norm'] + 0.5 * df['features_norm']
+
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    sc = ax.scatter(df['selected_features'], df['Loss'], df['composite'], c=df['composite'], cmap='viridis', alpha=0.7)
+    fig.colorbar(sc, ax=ax, label='Composite Metric')
+    ax.set_xlabel('Number of Selected Features')
+    ax.set_ylabel('Loss')
+
+    os.makedirs("visualizations/scatter/3d", exist_ok=True)
+    plt.savefig(f"visualizations/scatter/3d/{title}_3d_soo_scatter_plot.png")
+    plt.close()
+
+def plot_3d_scatter_pso(df, title):
+    # X = selected features, Y = loss, Z = composite metric
+    # z = loss + 0.01 * selected_features
+
+    df = df.copy()
+    df['selected_features'] = df.drop(columns=['Loss']).sum(axis=1)
+    df['composite'] = df['Loss'] + 0.01 * df['selected_features']
+
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    sc = ax.scatter(df['selected_features'], df['Loss'], df['composite'], c=df['composite'], cmap='viridis', alpha=0.7)
+    fig.colorbar(sc, ax=ax, label='Composite Metric')
+    ax.set_xlabel('Number of Selected Features')
+    ax.set_ylabel('Loss')
+
+    os.makedirs("visualizations/scatter/3d", exist_ok=True)
+    plt.savefig(f"visualizations/scatter/3d/{title}_3d_pso_scatter_plot.png")
+    plt.close()
+
+def plot_3d_scatter_soo_interactive(df, title):
+    df = df.copy()
+    # Compute the required metrics
+    df['selected_features'] = df.drop(columns=['Loss']).sum(axis=1)
+    df['loss_norm'] = df['Loss'] / df['Loss'].max()
+    df['features_norm'] = df['selected_features'] / df['selected_features'].max()
+    df['composite'] = 0.5 * df['loss_norm'] + 0.5 * df['features_norm']
+
+    # Create an interactive 3D scatter plot using Plotly
+    fig = px.scatter_3d(
+        df,
+        x='selected_features',
+        y='Loss',
+        z='composite',
+        color='composite',
+        color_continuous_scale='viridis',
+        title=title,
+        labels={
+            "selected_features": "Number of Selected Features",
+            "Loss": "Loss",
+            "composite": "Composite Metric"
+        }
+    )
+
+    # Create directory if it doesn't exist
+    os.makedirs("visualizations/scatter/3d", exist_ok=True)
+    # Save the interactive plot as an HTML file
+    html_file = f"visualizations/scatter/3d/{title}_3d_soo_scatter_plot.html"
+    fig.write_html(html_file)
+    print(f"Interactive 3D scatter plot saved to {html_file}")
+
+def plot_3d_scatter_pso_interactive(df, title):
+    df = df.copy()
+    df['selected_features'] = df.drop(columns=['Loss']).sum(axis=1)
+    df['composite'] = df['Loss'] + 0.01 * df['selected_features']
+
+    fig = px.scatter_3d(
+        df,
+        x='selected_features',
+        y='Loss',
+        z='composite',
+        color='composite',
+        color_continuous_scale='viridis',
+        title=title,
+        labels={
+            "selected_features": "Number of Selected Features",
+            "Loss": "Loss",
+            "composite": "Composite Metric"
+        }
+    )
+
+    os.makedirs("visualizations/scatter/3d", exist_ok=True)
+    html_file = f"visualizations/scatter/3d/{title}_3d_pso_scatter_plot.html"
+    fig.write_html(html_file)
+    print(f"Interactive 3D scatter plot saved to {html_file}")
 
 def violin_plot(df, title):
     df = df.copy()
@@ -306,6 +399,22 @@ def main():
     plot_feature_count_loss_combined(breast_cancer_df, "Breast Cancer Wisconsin Original")
     plot_feature_count_loss_combined(titanic_df, "Titanic")
     plot_feature_count_loss_combined(wine_quality_df, "Wine Quality Combined")
+
+    plot_3d_scatter_soo(breast_cancer_df, "Breast Cancer Wisconsin Original")
+    plot_3d_scatter_soo(titanic_df, "Titanic")
+    plot_3d_scatter_soo(wine_quality_df, "Wine Quality Combined")
+
+    plot_3d_scatter_pso(breast_cancer_df, "Breast Cancer Wisconsin Original")
+    plot_3d_scatter_pso(titanic_df, "Titanic")
+    plot_3d_scatter_pso(wine_quality_df, "Wine Quality Combined")
+
+    plot_3d_scatter_soo_interactive(breast_cancer_df, "Breast Cancer Wisconsin Original")
+    plot_3d_scatter_soo_interactive(titanic_df, "Titanic")
+    plot_3d_scatter_soo_interactive(wine_quality_df, "Wine Quality Combined")
+
+    plot_3d_scatter_pso_interactive(breast_cancer_df, "Breast Cancer Wisconsin Original")
+    plot_3d_scatter_pso_interactive(titanic_df, "Titanic")
+    plot_3d_scatter_pso_interactive(wine_quality_df, "Wine Quality Combined")
 
 """
     violin_plot(breast_cancer_df, "Breast Cancer Wisconsin Original")

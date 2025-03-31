@@ -3,6 +3,8 @@ use crate::utils::read_data;
 use rand::prelude::*;
 use plotters::prelude::*;
 use std::collections::HashMap;
+use std::time::{Instant, Duration};
+
 
 #[derive(Debug, Clone)]
 pub struct MooCombination {
@@ -591,66 +593,255 @@ pub fn plot_population(population: &[MooCombination], filename: &str) -> Result<
     Ok(())
 }
 
-/// Initializes the MOO algorithm with a given dataset and parameters.
-pub fn run_moo_algorithm(file_path: &str, population_size: usize, generations: usize, generations_to_print: usize, gene_length: usize) -> Vec<MooCombination> {
+/// Generic MOO algorithm runner.
+/// It initializes the population, then iteratively evolves it until the provided termination
+/// condition (a closure that takes the current generation count and the start time) returns false.
+/// The closure can use the current generation and elapsed time to decide when to stop.
+fn run_moo_algorithm_generic<F>(
+    file_path: &str,
+    population_size: usize,
+    gene_length: usize,
+    generations_to_print: usize,
+    print: bool,
+    mut termination_condition: F,
+) -> Vec<MooCombination>
+where
+    F: FnMut(usize, Instant) -> bool,
+{
+    // Load dataset and initialize population.
     let lookup_table = read_data::read_data(file_path).unwrap();
+    let mut population = init_population(gene_length, population_size, &lookup_table);
 
-    // Initialize the population
-    let mut population = init_population(gene_length, population_size, &lookup_table); 
-
-    
-    // Changes performed to the initial population
+    // Initial nondominated sort and assign crowding distances.
     let mut sorted_population = fast_nondominated_sort(population.clone());
-
-    // Assgns the crowding distance for the sorted population
     assign_crowding_distance_all(&mut sorted_population);
-
-    let mut generation = 0;
     let mutation_probability = 0.1;
-
     population = sorted_population.clone();
-    while generation < generations {
+
+    // Record start time for time-based termination.
+    let start_time = Instant::now();
+    let mut generation = 0;
+
+    // Run evolutionary loop until termination condition returns false.
+    while termination_condition(generation, start_time) {
         generation += 1;
-        // Prints for every x generations
-        if generation % generations_to_print == 0 {
+
+        // Print generation info if needed.
+        if generation % generations_to_print == 0 && print {
             println!("Generation: {}", generation);
-            // for individual in &population {
-            //    //all the attrs of the individual
-            //     println!("Combination: {:?}, Loss: {}, Rank: {}, Crowding Distance: {}", individual.combination, individual.loss, individual.rank, individual.crowding_distance);
-            // }
- 
         }
 
-        // 1 ) Generate offspring population
+        // 1) Generate offspring.
         let offspring_population = generate_offspring_population(&population, mutation_probability, &lookup_table);
-
-        // 2) Merge parent and offspring populations
+        // 2) Merge parent and offspring populations.
         let super_population = merge_populations(&population, &offspring_population);
-
-        // 3) Perform fast nondominated sorting on the merged population
+        // 3) Sort the merged population.
         let sorted_super_population = fast_nondominated_sort(super_population.clone());
-
-        // 4) Apply elitism to select the best individuals for the next generation
+        // 4) Apply elitism to select the next generation.
         let new_population = elitism(&sorted_super_population);
-
-        // 5 assigns the population to the new population
         population = new_population.clone();
-
     }
 
-    // 6) Perform fast nondominated sorting on the final population
+    // Final nondominated sorting and crowding distance assignment.
     let mut final_sorted_population = fast_nondominated_sort(population.clone());
-    // 7) Assign crowding distance to the final population
     assign_crowding_distance_all(&mut final_sorted_population);
-    // Prints the final population
-    println!("Final Population:");
 
-    for individual in &final_sorted_population {
-        println!("Combination: {:?}, Loss: {}, Rank: {}, Crowding Distance: {}", individual.combination, individual.loss, individual.rank, individual.crowding_distance);
+    if print {
+        println!("Final Population:");
+        for individual in &final_sorted_population {
+            println!(
+                "Combination: {:?}, Loss: {}, Rank: {}, Crowding Distance: {}",
+                individual.combination, individual.loss, individual.rank, individual.crowding_distance
+            );
+        }
     }
     final_sorted_population
-
 }
+
+/// Runs the MOO algorithm for a fixed number of generations.
+pub fn run_moo_algorithm(
+    file_path: &str,
+    population_size: usize,
+    generations: usize,
+    generations_to_print: usize,
+    gene_length: usize,
+    print: bool,
+) -> Vec<MooCombination> {
+    run_moo_algorithm_generic(
+        file_path,
+        population_size,
+        gene_length,
+        generations_to_print,
+        print,
+        |generation, _start_time| generation < generations,
+    )
+}
+
+/// Runs the MOO algorithm for a fixed time limit (in seconds).
+pub fn run_moo_algorithm_time(
+    file_path: &str,
+    population_size: usize,
+    time_limit: u64, // time limit in seconds
+    generations_to_print: usize,
+    gene_length: usize,
+    print: bool,
+) -> Vec<MooCombination> {
+    run_moo_algorithm_generic(
+        file_path,
+        population_size,
+        gene_length,
+        generations_to_print,
+        print,
+        |_, start_time| start_time.elapsed() < Duration::from_secs(time_limit),
+    )
+}
+
+pub fn execute_run_n_times(
+    n_times: usize, 
+    population_size: usize,
+    generations: usize, 
+    generations_to_print: usize, 
+    gene_length: usize, 
+    file_path: &str,
+    print: bool,
+    timed: bool
+) -> Vec<MooCombination> {
+    let mut all_best: Vec<MooCombination> = Vec::new();
+
+    for _ in 0..n_times {
+        let mut best_from_run: Vec<MooCombination> = Vec::new();
+        if timed {
+            best_from_run = run_moo_algorithm_time(file_path, population_size, 1, generations_to_print, gene_length, print);
+        }
+        else {
+            best_from_run = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length, print);
+        }
+        all_best.extend(best_from_run);
+    }
+    all_best
+}
+
+/// Helper function to choose a base hue (in degrees) for a given x-value (number of features).
+fn hue_for_x(x: i32) -> f64 {
+    match x {
+        1 => 0.0,    // red
+        2 => 60.0,   // yellow
+        3 => 120.0,  // green
+        4 => 180.0,  // cyan
+        5 => 240.0,  // blue
+        6 => 300.0,  // magenta
+        // For x > 6, just wrap around or pick a default
+        _ => 0.0,    // fallback to red
+    }
+}
+
+pub fn plot_best_pareto_overview(
+    all_best: &[MooCombination],
+    filename: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Build frequency map from the all_best population.
+    let mut freq_map: HashMap<String, usize> = HashMap::new();
+    for ind in all_best {
+        // Skip individuals with infinite loss.
+        if ind.loss.is_infinite() {
+            continue;
+        }
+        let (active, loss) = get_fitness(ind);
+        // Create a key that identifies a point (using a rounded loss to 3 for grouping).
+        let key = format!("({}, {:.3})", active, loss);
+        *freq_map.entry(key).or_insert(0) += 1;
+    }
+    println!("{:?}", freq_map);
+
+    // Find maximum frequency (for normalizing colors later).
+    let max_freq = freq_map.values().copied().max().unwrap_or(1);
+
+    // Extract unique points from the all_best population.
+    let mut unique_points: HashMap<String, &MooCombination> = HashMap::new();
+    for ind in all_best {
+        if ind.loss.is_infinite() {
+            continue;
+        }
+        let (active, loss) = get_fitness(ind);
+        let key = format!("({}, {:.3})", active, loss);
+        unique_points.entry(key).or_insert(ind);
+    }
+
+    // Collect unique individuals for computing plot ranges.
+    let unique_vals: Vec<&&MooCombination> = unique_points.values().collect();
+    if unique_vals.is_empty() {
+        println!("No valid individuals to plot.");
+        return Ok(());
+    }
+
+    // Determine x range (number of active features) and y range (loss)
+    let x_min = unique_vals
+        .iter()
+        .map(|ind| ind.combination.iter().filter(|&&b| b).count() as i32)
+        .min()
+        .unwrap();
+    let x_max = unique_vals
+        .iter()
+        .map(|ind| ind.combination.iter().filter(|&&b| b).count() as i32)
+        .max()
+        .unwrap();
+    let y_min = unique_vals
+        .iter()
+        .map(|ind| ind.loss)
+        .fold(f64::INFINITY, |a, b| a.min(b));
+    let y_max = unique_vals
+        .iter()
+        .map(|ind| ind.loss)
+        .fold(f64::NEG_INFINITY, |a, b| a.max(b));
+
+    // Set up the drawing area.
+    let root = BitMapBackend::new(filename, (800, 600)).into_drawing_area();
+    root.fill(&WHITE)?;
+
+    let mut chart = ChartBuilder::on(&root)
+        .caption("Best Pareto Front Overview", ("sans-serif", 50))
+        .margin(20)
+        .x_label_area_size(70)
+        .y_label_area_size(70)
+        .build_cartesian_2d(x_min..(x_max + 1), y_min..(y_max + 0.01))?;
+
+    chart.configure_mesh()
+        .x_desc("Number of Active Features")
+        .y_desc("Loss")
+        .axis_desc_style(("sans-serif", 22).into_font())
+        .x_label_style(("sans-serif", 20).into_font())
+        .y_label_style(("sans-serif", 20).into_font())
+        .draw()?;
+
+    // Plot each unique point with a color determined by both its x-value and frequency.
+    for (key, ind) in unique_points {
+        let frequency = *freq_map.get(&key).unwrap_or(&0);
+        let normalized = frequency as f64 / max_freq as f64; // value in [0, 1]
+
+        let x = ind.combination.iter().filter(|&&b| b).count() as i32;
+        let y = ind.loss;
+
+        // Base hue depends on x, so each x gets its own color "family".
+        let base_hue = hue_for_x(x);
+
+        // Saturation from 0.3 (low freq) up to 1.0 (high freq).
+        let saturation = 0.3 + normalized * 0.7;
+
+        let lightness = 0.6 - normalized * 0.2; // from 0.6 down to 0.4
+
+        let color = HSLColor(base_hue, saturation, lightness);
+
+        // Draw the point as a circle.
+        chart.draw_series(std::iter::once(
+            Circle::new((x, y), 6, color.filled()),
+        ))?;
+    }
+
+    root.present()?;
+    println!("Best Pareto Front overview plot saved to {}", filename);
+    Ok(())
+}
+
 
 pub fn plot_histogram(population: &[MooCombination], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
     use std::collections::HashMap;
@@ -753,7 +944,6 @@ pub fn plot_histogram(population: &[MooCombination], filename: &str) -> Result<(
     Ok(())
 }
 
-
 pub fn init() {
 
     // 1) Loads the breast cancer dataset
@@ -764,28 +954,46 @@ pub fn init() {
     let generations_to_print = 100; // Print every x generations
     let gene_length = 9; // Number of features (columns) in the dataset
 
-    let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
+    // let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
 
-    // 8) Plot the final population
-    let plot_filename = "src/output/moo/nsga_2_breast_cancer.png";
-    plot_population(&final_sorted_population, plot_filename).unwrap();
+    // // 8) Plot the final population
+    // let plot_filename = "src/output/moo/nsga_2_breast_cancer.png";
+    // plot_population(&final_sorted_population, plot_filename).unwrap();
 
-    // 2 LOads the wine dataset
-    let file_path = "XGB-Feature-Selection/output/wine_quality_combined";
-    let population_size = 100; // Size of the population
-    let generations = 1000; // Number of generations to run
-    let generations_to_print = 100; // Print every x generations
-    let gene_length = 11; // Number of features (columns) in the dataset
+    // // 2 LOads the wine dataset
+    // let file_path = "XGB-Feature-Selection/output/wine_quality_combined";
+    // let population_size = 100; // Size of the population
+    // let generations = 1000; // Number of generations to run
+    // let generations_to_print = 100; // Print every x generations
+    // let gene_length = 11; // Number of features (columns) in the dataset
 
-    let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
-    // 8) Plot the final population
-    let plot_filename = "src/output/moo/nsga_2_wine_combined.png";
-    plot_population(&final_sorted_population, plot_filename).unwrap();
+    // let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
+    // // 8) Plot the final population
+    // let plot_filename = "src/output/moo/nsga_2_wine_combined.png";
+    // plot_population(&final_sorted_population, plot_filename).unwrap();
 
-    // 3) Plot the histogram for the final population
-    let histogram_filename = "src/output/moo/nsga_2_histogram.png";
-    plot_histogram(&final_sorted_population, histogram_filename).unwrap();
-    println!("Histogram saved to {}", histogram_filename);
+    // // 3) Plot the histogram for the final population
+    // let histogram_filename = "src/output/moo/nsga_2_histogram.png";
+    // plot_histogram(&final_sorted_population, histogram_filename).unwrap();
+    // println!("Histogram saved to {}", histogram_filename);
+
+
+    // 1) Loads the breast cancer dataset
+    let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; 
+    let plot_filename = "src/output/moo/nsga_2_breast_cancer_multiple.png";
+
+    let all_best = execute_run_n_times(
+        100, 
+        population_size, 
+        generations, 
+        generations_to_print, 
+        gene_length, 
+        file_path,
+        false,
+        true
+    );
+    plot_best_pareto_overview(&all_best, plot_filename).unwrap();
+
 
 
 }

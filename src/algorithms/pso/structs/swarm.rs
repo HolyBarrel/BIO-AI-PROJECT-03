@@ -14,18 +14,24 @@ pub struct Swarm {
 
 impl Swarm {
     pub fn new(size: usize, particle_size: usize, mode: UpdateMode) -> Self {
-        let particles = (0..size).map(|_| Particle::new(particle_size)).collect::<Vec<Particle>>();
-        let best_position = vec![false; particle_size];
-        let best_loss: f64 = f64::MAX; 
-        let gen_to_best: usize = 0;
-
-        Swarm {
-            particles,
-            best_position,
-            best_loss,
-            gen_to_best,
+        let mut swarm = Swarm {
+            particles: Vec::new(),  // Empty at first
+            best_position: vec![false; particle_size],
+            best_loss: f64::MAX, 
+            gen_to_best: 0,
             mode,
-        }
+        };
+
+        swarm.initialize_particles(size, particle_size);
+
+        swarm
+    }
+    
+    fn initialize_particles(&mut self, size: usize, particle_size: usize) {
+        self.particles = (0..size).map(|_| Particle::new(particle_size)).collect::<Vec<Particle>>();
+        self.best_position = vec![false; particle_size]; // Reset the best position
+        self.best_loss = f64::MAX;  // Reset the best loss
+        self.gen_to_best = 0;       // Reset the generation count
     }
 
     pub fn update_global_best(&mut self, epoch: usize) {
@@ -37,6 +43,7 @@ impl Swarm {
             }
         }
     }
+    
 
     fn find_k_nearest_best(&self, particle_index: usize, k: usize) -> Vec<bool> {
         let mut neighbors = self.particles.iter().enumerate()
@@ -98,13 +105,10 @@ impl Swarm {
         let mut model_solutions: Vec<Vec<bool>> = Vec::new();
         let mut model_losses: Vec<f64> = Vec::new();
         let mut gen_to_solutions: Vec<usize> = Vec::new();
-        let mut runtimes: Vec<f64> = Vec::new(); // Store runtime for each run
+        let mut runtimes: Vec<f64> = Vec::new();
     
         for _run in 0..runs {
-            // Reset the swarm's state before starting each run
-            self.best_position = vec![false; self.best_position.len()];
-            self.best_loss = f64::MAX;
-            self.gen_to_best = 0;
+            self.initialize_particles(self.particles.len(), self.best_position.len());
 
             let start_time = Instant::now(); // Start timer
     
@@ -119,15 +123,32 @@ impl Swarm {
         }
     
         // Calculate Average no. of evaluations to solution
-        let avg_gen_to_solution: f64 = gen_to_solutions.iter().map(|&x| x as f64).sum::<f64>() / runs as f64;
+        let avg_gen_to_solution: f64 = gen_to_solutions
+            .iter()
+            .map(|&x| x as f64)
+            .sum::<f64>() / runs as f64;
         println!("AES: {:.6}", avg_gen_to_solution);
     
         // Calculate Average loss
         let avg_loss: f64 = model_losses.iter().sum::<f64>() / runs as f64;
         println!("MBF: {:.6}", 1.0 - avg_loss);
-    
+
         // Calculate and print average runtime
         let avg_runtime: f64 = runtimes.iter().sum::<f64>() / runs as f64;
         println!("Average Runtime: {:.6} seconds", avg_runtime);
+
+        // Give the best solution
+        println!("----------------------------------------");
+        let best_solution_index = model_losses
+            .iter()
+            .enumerate()
+            .min_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .map(|(i, _)| i)
+            .unwrap_or(0);
+        println!(
+            "Best solution: {:?}",
+            model_solutions[best_solution_index].iter().map(|&b| b as u8).collect::<Vec<u8>>()
+        );
+        println!("Best solution loss: {}", model_losses[best_solution_index]);
     }
 }

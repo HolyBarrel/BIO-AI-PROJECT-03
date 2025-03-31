@@ -9,6 +9,7 @@ pub struct Swarm {
     pub best_position: Vec<bool>,   // Global best position found by the swarm
     pub best_loss: f64,             // Global best loss found by the swarm
     gen_to_best: usize,             // Number of generations until the best solution is found
+    pub size: usize,                // Size of the swarm (number of particles)
     pub mode: UpdateMode,           // Update mode (global or k-neighbor)
 }
 
@@ -18,6 +19,7 @@ impl Swarm {
             particles: Vec::new(),  // Empty at first
             best_position: vec![false; particle_size],
             best_loss: f64::MAX, 
+            size: size,
             gen_to_best: 0,
             mode,
         };
@@ -127,7 +129,7 @@ impl Swarm {
             .iter()
             .map(|&x| x as f64)
             .sum::<f64>() / runs as f64;
-        println!("AES: {:.6}", avg_gen_to_solution);
+        println!("AES: {:.6}", avg_gen_to_solution * self.size as f64);
     
         // Calculate Average loss
         let avg_loss: f64 = model_losses.iter().sum::<f64>() / runs as f64;

@@ -28,15 +28,6 @@ impl Particle {
         }
     }
 
-    // Print the particle's information
-    pub fn print(&self) {
-        println!("Particle Position: {:?}", self.position);
-        println!("Particle Loss: {:?}", self.loss);
-        println!("Particle Velocity: {:?}", self.velocity);
-        println!("Best Position: {:?}", self.best_position);
-        println!("Best Loss: {:?}", self.best_loss);
-    }
-    
     /// Updates velocity of a Particle
     /// 
     /// global_best_position: Global best position
@@ -76,7 +67,7 @@ impl Particle {
         let x = self.position.iter().map(|&x| x as i32 as f64).collect::<Vec<f64>>();
         
         // Set T to the Loss of the combination matching current position
-        let h_eT: f64 = combinations
+        let h_e_t: f64 = combinations
             .iter()
             .find(|&c| c.combination == self.position)
             .map(|c| c.loss)
@@ -87,7 +78,7 @@ impl Particle {
         let h_p: f64 = x.iter().sum::<f64>();
 
         // Rerturn h_e * T(x) + epsilon * h_p(x)
-        let fit: f64 = h_eT + epsilon * h_p;
+        let fit: f64 = h_e_t + epsilon * h_p;
         
         self.loss = fit; // Update the loss of the particle
         if fit < self.best_loss {

@@ -149,6 +149,11 @@ impl Swarm {
             "Best solution: {:?}",
             model_solutions[best_solution_index].iter().map(|&b| b as u8).collect::<Vec<u8>>()
         );
-        println!("Best solution loss: {}", model_losses[best_solution_index]);
+        println!("Best solution loss: {}", combinations
+            .iter()
+            .find(|comb| comb.combination == model_solutions[best_solution_index])
+            .map(|comb| comb.loss)
+            .unwrap_or(f64::NAN)
+        );
     }
 }

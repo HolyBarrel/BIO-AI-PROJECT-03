@@ -1046,39 +1046,39 @@ pub fn init() {
     );
     plot_best_pareto_overview(&all_best, plot_filename, "Breast Cancer").unwrap();
 
-    // // 2) Loads the wine quality dataset
-    // let file_path = "XGB-Feature-Selection/output/wine_quality_combined"; 
-    // let plot_filename = "src/output/moo/nsga_2_wine_combined_multiple.png";
-    // gene_length = 11;
+    // 2) Loads the wine quality dataset
+    let file_path = "XGB-Feature-Selection/output/wine_quality_combined"; 
+    let plot_filename = "src/output/moo/nsga_2_wine_combined_multiple.png";
+    gene_length = 11;
 
-    // let all_best_wine = execute_run_n_times(
-    //     n_times, 
-    //     population_size, 
-    //     generations, 
-    //     generations_to_print, 
-    //     gene_length, 
-    //     file_path,
-    //     false,
-    //     true
-    // );
-    // plot_best_pareto_overview(&all_best_wine, plot_filename, "Wine").unwrap();
+    let all_best_wine = execute_run_n_times(
+        n_times, 
+        population_size, 
+        generations, 
+        generations_to_print, 
+        gene_length, 
+        file_path,
+        false,
+        true
+    );
+    plot_best_pareto_overview(&all_best_wine, plot_filename, "Wine").unwrap();
 
-    // // 3) Loads the breast cancer dataset
-    // let file_path = "XGB-Feature-Selection/output/titanic"; 
-    // let plot_filename = "src/output/moo/nsga_2_titanic_multiple.png";
-    // gene_length = 8;
+    // 3) Loads the breast cancer dataset
+    let file_path = "XGB-Feature-Selection/output/titanic"; 
+    let plot_filename = "src/output/moo/nsga_2_titanic_multiple.png";
+    gene_length = 8;
 
-    // let all_best_titanic = execute_run_n_times(
-    //     n_times, 
-    //     population_size, 
-    //     generations, 
-    //     generations_to_print, 
-    //     gene_length, 
-    //     file_path,
-    //     false,
-    //     true
-    // );
-    // plot_best_pareto_overview(&all_best_titanic, plot_filename, "Titanic").unwrap();
+    let all_best_titanic = execute_run_n_times(
+        n_times, 
+        population_size, 
+        generations, 
+        generations_to_print, 
+        gene_length, 
+        file_path,
+        false,
+        true
+    );
+    plot_best_pareto_overview(&all_best_titanic, plot_filename, "Titanic").unwrap();
 
 
 

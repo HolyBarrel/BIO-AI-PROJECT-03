@@ -47,6 +47,7 @@ pub fn create_individual(gene_length: usize, data: &Vec<Combination>) -> MooComb
     if let Some(existing) = data.iter().find(|c| c.combination == activated_columns) {
         existing.clone().into()
     } else {
+        println!("Creating new individual: {:?}", activated_columns);
         MooCombination {
             combination: activated_columns,
             loss: 0.0,
@@ -721,43 +722,57 @@ pub fn execute_run_n_times(
     all_best
 }
 
-/// Helper function to choose a base hue (in degrees) for a given x-value (number of features).
-fn hue_for_x(x: i32) -> f64 {
-    match x {
-        1 => 0.0,    // red
-        2 => 60.0,   // yellow
-        3 => 120.0,  // green
-        4 => 180.0,  // cyan
-        5 => 240.0,  // blue
-        6 => 300.0,  // magenta
-        // For x > 6, just wrap around or pick a default
-        _ => 0.0,    // fallback to red
+// Helper function to linearly interpolate between two u8 values.
+fn lerp(a: u8, b: u8, t: f64) -> u8 {
+    (a as f64 + t * ((b as f64) - (a as f64))).round() as u8
+}
+
+/// Interpolates a color given a value in [0,1] and a set of color stops.
+/// Each stop is a tuple (t, (r, g, b)) where t is the normalized frequency value.
+fn interpolate_color(value: f64, stops: &[(f64, (u8, u8, u8))]) -> RGBColor {
+    // If value is below the first stop, return the first color.
+    if value <= stops[0].0 {
+        let (r, g, b) = stops[0].1;
+        return RGBColor(r, g, b);
     }
+    // Otherwise, find the two stops surrounding value.
+    for i in 0..stops.len() - 1 {
+        let (t0, (r0, g0, b0)) = stops[i];
+        let (t1, (r1, g1, b1)) = stops[i + 1];
+        if value >= t0 && value <= t1 {
+            let t = (value - t0) / (t1 - t0);
+            let r = lerp(r0, r1, t);
+            let g = lerp(g0, g1, t);
+            let b = lerp(b0, b1, t);
+            return RGBColor(r, g, b);
+        }
+    }
+    // If value exceeds the last stop, return the last color.
+    let (r, g, b) = stops.last().unwrap().1;
+    RGBColor(r, g, b)
 }
 
 pub fn plot_best_pareto_overview(
     all_best: &[MooCombination],
     filename: &str,
+    plot_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Build frequency map from the all_best population.
-    let mut freq_map: HashMap<String, usize> = HashMap::new();
+    let mut freq_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for ind in all_best {
         // Skip individuals with infinite loss.
         if ind.loss.is_infinite() {
             continue;
         }
         let (active, loss) = get_fitness(ind);
-        // Create a key that identifies a point (using a rounded loss to 3 for grouping).
+        // Create a key that identifies a point (using a rounded loss to 3 decimal places).
         let key = format!("({}, {:.3})", active, loss);
         *freq_map.entry(key).or_insert(0) += 1;
     }
     println!("{:?}", freq_map);
 
-    // Find maximum frequency (for normalizing colors later).
-    let max_freq = freq_map.values().copied().max().unwrap_or(1);
-
     // Extract unique points from the all_best population.
-    let mut unique_points: HashMap<String, &MooCombination> = HashMap::new();
+    let mut unique_points: std::collections::HashMap<String, &MooCombination> = std::collections::HashMap::new();
     for ind in all_best {
         if ind.loss.is_infinite() {
             continue;
@@ -766,15 +781,14 @@ pub fn plot_best_pareto_overview(
         let key = format!("({}, {:.3})", active, loss);
         unique_points.entry(key).or_insert(ind);
     }
-
-    // Collect unique individuals for computing plot ranges.
+    
     let unique_vals: Vec<&&MooCombination> = unique_points.values().collect();
     if unique_vals.is_empty() {
         println!("No valid individuals to plot.");
         return Ok(());
     }
-
-    // Determine x range (number of active features) and y range (loss)
+    
+    // Determine plot ranges.
     let x_min = unique_vals
         .iter()
         .map(|ind| ind.combination.iter().filter(|&&b| b).count() as i32)
@@ -793,18 +807,34 @@ pub fn plot_best_pareto_overview(
         .iter()
         .map(|ind| ind.loss)
         .fold(f64::NEG_INFINITY, |a, b| a.max(b));
-
-    // Set up the drawing area.
-    let root = BitMapBackend::new(filename, (800, 600)).into_drawing_area();
+    
+    // Find maximum frequency for normalization.
+    let max_freq = freq_map.values().copied().max().unwrap_or(1);
+    
+    // Define color stops for the gradient.
+    let color_stops = vec![
+        (0.0, (0, 255, 0)),     // Green at normalized value 0.0
+        (0.25, (255, 255, 0)),  // Yellow at 0.25
+        (0.5, (255, 0, 255)),   // Magenta at 0.5
+        (0.75, (0, 0, 255)),    // Blue at 0.75
+        (1.0, (255, 0, 0)),     // Red at 1.0
+    ];
+    
+    // Set up the drawing area and split it for the chart and legend.
+    let root = BitMapBackend::new(filename, (1000, 600)).into_drawing_area();
     root.fill(&WHITE)?;
-
-    let mut chart = ChartBuilder::on(&root)
-        .caption("Best Pareto Front Overview", ("sans-serif", 50))
+    let areas = root.split_horizontally(800); // 800 pixels for the chart, 200 for the legend
+    let chart_area = areas.0.clone();
+    let legend_area = areas.1.clone();
+    
+    let plot_title = format!("{} Pareto Front Overview", plot_name);
+    let mut chart = ChartBuilder::on(&chart_area)
+        .caption(plot_title, ("sans-serif", 50))
         .margin(20)
         .x_label_area_size(70)
         .y_label_area_size(70)
         .build_cartesian_2d(x_min..(x_max + 1), y_min..(y_max + 0.01))?;
-
+    
     chart.configure_mesh()
         .x_desc("Number of Active Features")
         .y_desc("Loss")
@@ -812,31 +842,51 @@ pub fn plot_best_pareto_overview(
         .x_label_style(("sans-serif", 20).into_font())
         .y_label_style(("sans-serif", 20).into_font())
         .draw()?;
-
-    // Plot each unique point with a color determined by both its x-value and frequency.
+    
+    // Plot each unique point using a color computed from the normalized frequency.
     for (key, ind) in unique_points {
         let frequency = *freq_map.get(&key).unwrap_or(&0);
-        let normalized = frequency as f64 / max_freq as f64; // value in [0, 1]
-
         let x = ind.combination.iter().filter(|&&b| b).count() as i32;
         let y = ind.loss;
-
-        // Base hue depends on x, so each x gets its own color "family".
-        let base_hue = hue_for_x(x);
-
-        // Saturation from 0.3 (low freq) up to 1.0 (high freq).
-        let saturation = 0.3 + normalized * 0.7;
-
-        let lightness = 0.6 - normalized * 0.2; // from 0.6 down to 0.4
-
-        let color = HSLColor(base_hue, saturation, lightness);
-
-        // Draw the point as a circle.
+    
+        let normalized = frequency as f64 / max_freq as f64; // value in [0,1]
+        let color = interpolate_color(normalized, &color_stops);
+    
         chart.draw_series(std::iter::once(
             Circle::new((x, y), 6, color.filled()),
         ))?;
     }
-
+    
+    // Draw the legend in the legend area.
+    legend_area.fill(&WHITE)?;
+    let legend_font = ("sans-serif", 20).into_font();
+    let tick_count = 5;
+    let legend_height = 200;
+    let legend_width = 30;
+    let start_y = 20;
+    let step_y = (legend_height - start_y) / tick_count;
+    
+    for i in 0..=tick_count {
+        let t = i as f64 / tick_count as f64; // normalized value
+        let color = interpolate_color(t, &color_stops);
+        // Compute the corresponding frequency.
+        let freq_value = (t * max_freq as f64).round() as usize;
+        let rect_top = start_y + i * step_y;
+        // Draw a small colored rectangle.
+        legend_area.draw(&Rectangle::new(
+            [(10, rect_top), (10 + legend_width, rect_top + 20)],
+            color.filled(),
+        ))?;
+        // Draw the label aligned vertically with the center of the rectangle.
+        let label = format!("Freq ≈ {}", freq_value);
+        legend_area.draw(&Text::new(
+            label,
+            (10 + legend_width + 10, rect_top + 10), // use rect_top + 10 for vertical centering
+            legend_font.clone(),
+        ))?;
+    }
+    
+    
     root.present()?;
     println!("Best Pareto Front overview plot saved to {}", filename);
     Ok(())
@@ -952,7 +1002,8 @@ pub fn init() {
     let population_size = 100; // Size of the population
     let generations = 1000; // Number of generations to run
     let generations_to_print = 100; // Print every x generations
-    let gene_length = 9; // Number of features (columns) in the dataset
+    let mut gene_length = 9; // Number of features (columns) in the dataset
+    let n_times = 50;
 
     // let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
 
@@ -981,9 +1032,10 @@ pub fn init() {
     // 1) Loads the breast cancer dataset
     let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; 
     let plot_filename = "src/output/moo/nsga_2_breast_cancer_multiple.png";
+    gene_length = 9;
 
     let all_best = execute_run_n_times(
-        100, 
+        n_times, 
         population_size, 
         generations, 
         generations_to_print, 
@@ -992,7 +1044,41 @@ pub fn init() {
         false,
         true
     );
-    plot_best_pareto_overview(&all_best, plot_filename).unwrap();
+    plot_best_pareto_overview(&all_best, plot_filename, "Breast Cancer").unwrap();
+
+    // // 2) Loads the wine quality dataset
+    // let file_path = "XGB-Feature-Selection/output/wine_quality_combined"; 
+    // let plot_filename = "src/output/moo/nsga_2_wine_combined_multiple.png";
+    // gene_length = 11;
+
+    // let all_best_wine = execute_run_n_times(
+    //     n_times, 
+    //     population_size, 
+    //     generations, 
+    //     generations_to_print, 
+    //     gene_length, 
+    //     file_path,
+    //     false,
+    //     true
+    // );
+    // plot_best_pareto_overview(&all_best_wine, plot_filename, "Wine").unwrap();
+
+    // // 3) Loads the breast cancer dataset
+    // let file_path = "XGB-Feature-Selection/output/titanic"; 
+    // let plot_filename = "src/output/moo/nsga_2_titanic_multiple.png";
+    // gene_length = 8;
+
+    // let all_best_titanic = execute_run_n_times(
+    //     n_times, 
+    //     population_size, 
+    //     generations, 
+    //     generations_to_print, 
+    //     gene_length, 
+    //     file_path,
+    //     false,
+    //     true
+    // );
+    // plot_best_pareto_overview(&all_best_titanic, plot_filename, "Titanic").unwrap();
 
 
 

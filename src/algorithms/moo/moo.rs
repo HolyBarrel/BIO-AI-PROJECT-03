@@ -4,6 +4,7 @@ use rand::prelude::*;
 use plotters::prelude::*;
 use std::collections::HashMap;
 use std::time::{Instant, Duration};
+use serde::Serialize; // Import Serialize derive macro
 
 
 #[derive(Debug, Clone)]
@@ -722,34 +723,68 @@ pub fn execute_run_n_times(
     all_best
 }
 
-// Helper function to linearly interpolate between two u8 values.
-fn lerp(a: u8, b: u8, t: f64) -> u8 {
-    (a as f64 + t * ((b as f64) - (a as f64))).round() as u8
+#[derive(Serialize)]
+struct RunMetric {
+    loss: f64,
+    num_features: usize,
+    frequency: usize,
+    percentage: f64,
+    combination: String,
 }
 
-/// Interpolates a color given a value in [0,1] and a set of color stops.
-/// Each stop is a tuple (t, (r, g, b)) where t is the normalized frequency value.
-fn interpolate_color(value: f64, stops: &[(f64, (u8, u8, u8))]) -> RGBColor {
-    // If value is below the first stop, return the first color.
-    if value <= stops[0].0 {
-        let (r, g, b) = stops[0].1;
-        return RGBColor(r, g, b);
-    }
-    // Otherwise, find the two stops surrounding value.
-    for i in 0..stops.len() - 1 {
-        let (t0, (r0, g0, b0)) = stops[i];
-        let (t1, (r1, g1, b1)) = stops[i + 1];
-        if value >= t0 && value <= t1 {
-            let t = (value - t0) / (t1 - t0);
-            let r = lerp(r0, r1, t);
-            let g = lerp(g0, g1, t);
-            let b = lerp(b0, b1, t);
-            return RGBColor(r, g, b);
+pub fn save_run_metrics_to_csv(
+    all_best: &[MooCombination],
+    filename: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Build a frequency map for unique individuals (using a key based on number of active features and loss).
+    let mut freq_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for ind in all_best {
+        if ind.loss.is_infinite() {
+            continue;
         }
+        let (active, loss) = get_fitness(ind);
+        // Key format: "(num_features, loss)" with loss rounded to 3 decimal places.
+        let key = format!("({}, {:.3})", active, loss);
+        *freq_map.entry(key).or_insert(0) += 1;
     }
-    // If value exceeds the last stop, return the last color.
-    let (r, g, b) = stops.last().unwrap().1;
-    RGBColor(r, g, b)
+    // Total count of valid individuals (for percentage calculations).
+    let total: usize = freq_map.values().copied().sum();
+
+    // Create a map for unique individuals.
+    let mut unique_points: std::collections::HashMap<String, &MooCombination> = std::collections::HashMap::new();
+    for ind in all_best {
+        if ind.loss.is_infinite() {
+            continue;
+        }
+        let (active, loss) = get_fitness(ind);
+        let key = format!("({}, {:.3})", active, loss);
+        unique_points.entry(key).or_insert(ind);
+    }
+
+    let mut wtr = csv::Writer::from_path(filename)?;
+    // For each unique solution, write a row with its loss, num_features, frequency, percentage, and gene combination.
+    for (key, ind) in unique_points {
+        let frequency = *freq_map.get(&key).unwrap_or(&0);
+        let percentage = ((frequency as f64 / total as f64) * 100.0 * 100.0).round() / 100.0;
+        let (active, loss) = get_fitness(ind);
+        // Convert the gene combination (vector of booleans) into a comma-separated string.
+        let combination_str = ind
+            .combination
+            .iter()
+            .map(|b| if *b { "1" } else { "0" })
+            .collect::<Vec<&str>>()
+            .join(",");
+        let metric = RunMetric {
+            loss,
+            num_features: active,
+            frequency,
+            percentage,
+            combination: combination_str,
+        };
+        wtr.serialize(metric)?;
+    }
+    wtr.flush()?;
+    Ok(())
 }
 
 pub fn plot_best_pareto_overview(
@@ -808,22 +843,24 @@ pub fn plot_best_pareto_overview(
         .map(|ind| ind.loss)
         .fold(f64::NEG_INFINITY, |a, b| a.max(b));
     
-    // Find maximum frequency for normalization.
+    // Find maximum frequency for grouping.
     let max_freq = freq_map.values().copied().max().unwrap_or(1);
     
-    // Define color stops for the gradient.
-    let color_stops = vec![
-        (0.0, (0, 255, 0)),     // Green at normalized value 0.0
-        (0.25, (255, 255, 0)),  // Yellow at 0.25
-        (0.5, (255, 0, 255)),   // Magenta at 0.5
-        (0.75, (0, 0, 255)),    // Blue at 0.75
-        (1.0, (255, 0, 0)),     // Red at 1.0
+    // Set up discrete groups dynamically.
+    let tick_count = 5;
+    let discrete_colors = vec![
+        RGBColor(0, 0, 0),    // Black
+        RGBColor(0, 255, 0),  // Green
+        RGBColor(0, 0, 255),  // Blue
+        RGBColor(255, 0, 255),    // Magenta
+        RGBColor(255, 0, 0),    // Red
     ];
+    let group_interval = max_freq as f64 / tick_count as f64;
     
     // Set up the drawing area and split it for the chart and legend.
     let root = BitMapBackend::new(filename, (1000, 600)).into_drawing_area();
     root.fill(&WHITE)?;
-    let areas = root.split_horizontally(800); // 800 pixels for the chart, 200 for the legend
+    let areas = root.split_horizontally(750); 
     let chart_area = areas.0.clone();
     let legend_area = areas.1.clone();
     
@@ -843,58 +880,57 @@ pub fn plot_best_pareto_overview(
         .y_label_style(("sans-serif", 20).into_font())
         .draw()?;
     
-    // Plot each unique point using a color computed from the normalized frequency.
+    // Plot each unique point using the discrete color based on its frequency.
     for (key, ind) in unique_points {
         let frequency = *freq_map.get(&key).unwrap_or(&0);
         let x = ind.combination.iter().filter(|&&b| b).count() as i32;
         let y = ind.loss;
     
-        let normalized = frequency as f64 / max_freq as f64; // value in [0,1]
-        let color = interpolate_color(normalized, &color_stops);
+        // Determine which group the frequency falls into.
+        let mut group_index = ((frequency as f64) / group_interval).floor() as usize;
+        if group_index >= tick_count {
+            group_index = tick_count - 1;
+        }
+        let color = discrete_colors[group_index];
     
         chart.draw_series(std::iter::once(
             Circle::new((x, y), 6, color.filled()),
         ))?;
     }
     
-    // Draw the legend in the legend area.
+    // Draw the legend in the legend area using the same discrete groups.
     legend_area.fill(&WHITE)?;
     let legend_font = ("sans-serif", 20).into_font();
-    let tick_count = 5;
-    let legend_height = 200;
-    let legend_width = 30;
-    let start_y = 20;
-    let step_y = (legend_height - start_y) / tick_count;
-    
-    for i in 0..=tick_count {
-        let t = i as f64 / tick_count as f64; // normalized value
-        let color = interpolate_color(t, &color_stops);
-        // Compute the corresponding frequency.
-        let freq_value = (t * max_freq as f64).round() as usize;
-        let rect_top = start_y + i * step_y;
+    let mut y_pos = 20;
+    for i in 0..tick_count {
+        let lower = (group_interval * i as f64).round() as usize;
+        let upper = if i == tick_count - 1 {
+            max_freq
+        } else {
+            (group_interval * (i + 1) as f64).round() as usize - 1
+        };
+        let label = format!("Freq: {} - {}", lower, upper);
+        let color = discrete_colors[i];
         // Draw a small colored rectangle.
         legend_area.draw(&Rectangle::new(
-            [(10, rect_top), (10 + legend_width, rect_top + 20)],
+            [(10, y_pos), (40, y_pos + 20)],
             color.filled(),
         ))?;
-        // Draw the label aligned vertically with the center of the rectangle.
-        let label = format!("Freq ≈ {}", freq_value);
+        // Draw the label vertically centered relative to the rectangle.
         legend_area.draw(&Text::new(
             label,
-            (10 + legend_width + 10, rect_top + 10), // use rect_top + 10 for vertical centering
+            (50, y_pos + 14),
             legend_font.clone(),
         ))?;
+        y_pos += 40;
     }
-    
     
     root.present()?;
     println!("Best Pareto Front overview plot saved to {}", filename);
     Ok(())
 }
 
-
 pub fn plot_histogram(population: &[MooCombination], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
-    use std::collections::HashMap;
     // Group individuals by the fitness tuple from get_fitness.
     // For each group, store (loss, best_rank, frequency)
     let mut groups: HashMap<String, (f64, i8, usize)> = HashMap::new();
@@ -930,8 +966,8 @@ pub fn plot_histogram(population: &[MooCombination], filename: &str) -> Result<(
     // Find the maximum frequency among the groups (for the y-axis)
     let max_freq = group_vec.iter().map(|(_, _, _, freq)| *freq).max().unwrap();
 
-    // Create the drawing area with 800x600 pixels.
-    let root = BitMapBackend::new(filename, (800, 600)).into_drawing_area();
+    // Create the drawing area with 1000X600 pixels.
+    let root = BitMapBackend::new(filename, (1000, 600)).into_drawing_area();
     root.fill(&WHITE)?;
 
     // Build the chart.
@@ -949,7 +985,7 @@ pub fn plot_histogram(population: &[MooCombination], filename: &str) -> Result<(
         .y_desc("Frequency")
         .x_label_formatter(&|&x| {
             if (x as usize) < group_vec.len() {
-                format!("                    {}", group_vec[x as usize].0)  // prepend spaces
+                format!("            {}", group_vec[x as usize].0)  // prepend spaces
             } else {
                 "".to_string()
             }
@@ -1003,7 +1039,7 @@ pub fn init() {
     let generations = 1000; // Number of generations to run
     let generations_to_print = 100; // Print every x generations
     let mut gene_length = 9; // Number of features (columns) in the dataset
-    let n_times = 50;
+    let n_times = 100;
 
     // let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
 
@@ -1032,9 +1068,13 @@ pub fn init() {
     // 1) Loads the breast cancer dataset
     let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; 
     let plot_filename = "src/output/moo/nsga_2_breast_cancer_multiple.png";
+    let csv_filename = "src/output/moo/nsga_2_breast_cancer_summary.csv";
     gene_length = 9;
 
-    let all_best = execute_run_n_times(
+    // Starts a timer before the exec
+    let mut start_time = Instant::now();
+
+    let all_best_cancer = execute_run_n_times(
         n_times, 
         population_size, 
         generations, 
@@ -1044,12 +1084,22 @@ pub fn init() {
         false,
         true
     );
-    plot_best_pareto_overview(&all_best, plot_filename, "Breast Cancer").unwrap();
+    // Ends the timer after the exec
+    let mut elapsed_time = start_time.elapsed();
+    println!("Elapsed time for the Breast Cancer dataset: {:?}", elapsed_time);
+
+    plot_best_pareto_overview(&all_best_cancer, plot_filename, "Breast Cancer").unwrap();
+    plot_histogram(&all_best_cancer, "src/output/moo/nsga_2_breast_cancer_histogram.png").unwrap();
+    let _1 = save_run_metrics_to_csv(&all_best_cancer, csv_filename);
 
     // 2) Loads the wine quality dataset
     let file_path = "XGB-Feature-Selection/output/wine_quality_combined"; 
     let plot_filename = "src/output/moo/nsga_2_wine_combined_multiple.png";
+    let csv_filename = "src/output/moo/nsga_2_wine_combined_summary.csv";
     gene_length = 11;
+
+    // Reset the timer before the exec
+    start_time = Instant::now();
 
     let all_best_wine = execute_run_n_times(
         n_times, 
@@ -1061,12 +1111,23 @@ pub fn init() {
         false,
         true
     );
+    // Ends the timer after the exec
+    elapsed_time = start_time.elapsed();
+    println!("Elapsed time for the Wine dataset: {:?}", elapsed_time);
+
     plot_best_pareto_overview(&all_best_wine, plot_filename, "Wine").unwrap();
+    plot_histogram(&all_best_wine, "src/output/moo/nsga_2_wine_combined_histogram.png").unwrap();
+    let _2 = save_run_metrics_to_csv(&all_best_wine, csv_filename);
+
 
     // 3) Loads the breast cancer dataset
     let file_path = "XGB-Feature-Selection/output/titanic"; 
     let plot_filename = "src/output/moo/nsga_2_titanic_multiple.png";
+    let csv_filename = "src/output/moo/nsga_2_titanic_summary.csv";
     gene_length = 8;
+
+    // Reset the timer before the exec
+    start_time = Instant::now();
 
     let all_best_titanic = execute_run_n_times(
         n_times, 
@@ -1078,7 +1139,14 @@ pub fn init() {
         false,
         true
     );
+
+    // Ends the timer after the exec
+    elapsed_time = start_time.elapsed();
+    println!("Elapsed time for the Titanic dataset: {:?}", elapsed_time);
+
     plot_best_pareto_overview(&all_best_titanic, plot_filename, "Titanic").unwrap();
+    plot_histogram(&all_best_titanic, "src/output/moo/nsga_2_titanic_histogram.png").unwrap();
+    let _3 = save_run_metrics_to_csv(&all_best_titanic, csv_filename);
 
 
 

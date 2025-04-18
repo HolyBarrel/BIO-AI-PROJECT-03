@@ -617,7 +617,7 @@ where
     // Initial nondominated sort and assign crowding distances.
     let mut sorted_population = fast_nondominated_sort(population.clone());
     assign_crowding_distance_all(&mut sorted_population);
-    let mutation_probability = 0.1;
+    let mutation_probability = 1.0 / gene_length as f64;
     population = sorted_population.clone();
 
     // Record start time for time-based termination.

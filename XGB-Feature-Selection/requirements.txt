@@ -6,3 +6,5 @@ seaborn
 scikit_learn
 numpy
 plotly
+h5py
+tqdm

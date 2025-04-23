@@ -1,7 +1,8 @@
 import os
 import math
+import numpy as np
 import pandas as pd
-import itertools
+import multiprocessing
 from joblib import Parallel, delayed
 from sklearn.ensemble import RandomForestClassifier
 from tqdm import tqdm
@@ -9,111 +10,102 @@ from tqdm import tqdm
 # how many rows to buffer before appending to CSV
 BATCH_SIZE = 100
 
-# Column names
-col_cleaveland_heart = [
-    "age", "sex", "cp", "trestbps", "chol", "fbs", "restecg",
-    "thalach", "exang", "oldpeak", "slope", "ca", "thal", "target"
-]
-col_zoo = [
-    "animal_name", "hair", "feathers", "eggs", "milk", "airborne",
-    "aquatic", "predator", "toothed", "backbone", "breathes",
-    "venomous", "fins", "legs", "tail", "domestic", "catsize", "target"
-]
-
-# Load data
+# --- 1) load your two pandas datasets as before ---
 df_cleaveland_heart = pd.read_csv(
-    "test_data/processed.cleveland.data", header=None, names=col_cleaveland_heart
+    "test_data/processed.cleveland.data", header=None,
+    names=[
+        "age","sex","cp","trestbps","chol","fbs","restecg",
+        "thalach","exang","oldpeak","slope","ca","thal","target"
+    ]
 ).replace("?", 0)
-df_zoo = pd.read_csv("test_data/zoo.data", header=None, names=col_zoo).replace("?", 0)
+X_heart = df_cleaveland_heart.drop(columns="target")
+y_heart = df_cleaveland_heart["target"].values
 
-# Split X/y
-X_cleaveland_heart = df_cleaveland_heart.drop(columns=["target"])
-y_cleaveland_heart = df_cleaveland_heart["target"]
-
-X_zoo = df_zoo.drop(columns=["animal_name", "target"])
-y_zoo = df_zoo["target"]
+df_zoo = pd.read_csv("test_data/zoo.data", header=None,
+    names=[
+        "animal_name","hair","feathers","eggs","milk","airborne",
+        "aquatic","predator","toothed","backbone","breathes",
+        "venomous","fins","legs","tail","domestic","catsize","target"
+    ]
+).replace("?", 0)
+X_zoo = df_zoo.drop(columns=["animal_name","target"])
+y_zoo = df_zoo["target"].values
 
 datasets = {
-    "heart_disease": (X_cleaveland_heart, y_cleaveland_heart),
-    "zoo":           (X_zoo, y_zoo)
+    "heart_disease": (X_heart, y_heart),
+    "zoo":           (X_zoo,    y_zoo)
 }
 
-def eval_combination(X, y, combination):
-    selected = list(combination)
-    def one_seed(seed):
-        clf = RandomForestClassifier(
-            n_estimators=30,
-            random_state=seed,
-            n_jobs=-1
-        )
-        clf.fit(X[selected], y)
-        return clf.score(X[selected], y)
+# number of worker processes
+n_procs = max(1, multiprocessing.cpu_count() - 1)
 
-    accuracies = Parallel(n_jobs=-1)(
-        delayed(one_seed)(seed) for seed in range(30)
+for name, (X_df, y) in datasets.items():
+    X_vals = X_df.values
+    feature_names = list(X_df.columns)
+    n_features = X_vals.shape[1]
+
+    # --- build bit‐mask combinations once ---
+    masks = np.arange(1, 1 << n_features, dtype=np.uint64)
+    n_bytes = (n_features + 7) // 8
+    bytes_view = (
+        masks
+        .astype(f'>u{n_bytes}')
+        .view(np.uint8)
+        .reshape(-1, n_bytes)
     )
-    avg_acc = sum(accuracies) / len(accuracies)
-    row = {feat: (feat in selected) for feat in X.columns}
-    row["Loss"] = 1.0 - avg_acc
-    return row
+    bits = np.unpackbits(bytes_view, axis=1)[:, -n_features:]
+    comb_indices = [list(np.nonzero(row)[0]) for row in bits]
+    total = len(comb_indices)
 
-if __name__ == "__main__":
+    # --- prepare output CSV & resume info ---
     os.makedirs("output_test", exist_ok=True)
+    output_csv = os.path.join("output_test", f"random_forest_{name}.csv")
+    if os.path.exists(output_csv):
+        done_rows = len(pd.read_csv(output_csv))
+        write_header = False
+    else:
+        done_rows = 0
+        write_header = True
 
-    for name, (X, y) in datasets.items():
-        feature_names = list(X.columns)
-        n_features = len(feature_names)
-
-        # total count of non-empty subsets = 2^n - 1
-        total_combinations = sum(
-            math.comb(n_features, r) for r in range(1, n_features + 1)
-        )
-        # generator for all non-empty subsets
-        combinations = itertools.chain.from_iterable(
-            itertools.combinations(feature_names, r)
-            for r in range(1, n_features + 1)
-        )
-
-        output_csv = os.path.join("output_test", f"random_forest_{name}.csv")
-        # figure out how many rows we've already written
-        if os.path.exists(output_csv):
-            done_df = pd.read_csv(output_csv)
-            start_idx = len(done_df)
-        else:
-            start_idx = 0
-
-        # progress bar that starts at what we've done
-        pbar = tqdm(total=total_combinations,
-                    initial=start_idx,
-                    desc=f"{name} combinations")
-
-        buffer = []
-        for idx, comb in enumerate(combinations):
-            pbar.update(1)
-            if idx < start_idx:
-                continue  # skip already‐done
-
-            buffer.append(eval_combination(X, y, comb))
-
-            if len(buffer) >= BATCH_SIZE:
-                # append to CSV
-                df_batch = pd.DataFrame(buffer)
-                df_batch.to_csv(
-                    output_csv,
-                    mode="a",
-                    header=not os.path.exists(output_csv),
-                    index=False
-                )
-                buffer.clear()
-
-        # flush any leftovers
-        if buffer:
-            df_batch = pd.DataFrame(buffer)
-            df_batch.to_csv(
-                output_csv,
-                mode="a",
-                header=not os.path.exists(output_csv),
-                index=False
+    # --- define your evaluator (one mask → one dict row) ---
+    def eval_comb(idx_list):
+        scores = []
+        for seed in range(30):
+            clf = RandomForestClassifier(
+                n_estimators=30,
+                random_state=seed,
+                n_jobs=1
             )
-        pbar.close()
-        print(f"Saved {output_csv}")
+            clf.fit(X_vals[:, idx_list], y)
+            scores.append(clf.score(X_vals[:, idx_list], y))
+        loss = 1.0 - np.mean(scores)
+        row = { feat: (i in idx_list)
+                for i, feat in enumerate(feature_names) }
+        row["Loss"] = loss
+        return row
+
+    # --- batch + parallel loop with progress bar ---
+    pbar = tqdm(total=total, desc=f"{name} combos", initial=done_rows)
+    for start in range(done_rows, total, BATCH_SIZE):
+        end = min(start + BATCH_SIZE, total)
+        batch_idxs = comb_indices[start:end]
+
+        # dispatch this batch to worker processes
+        results = Parallel(
+            n_jobs=n_procs,
+            verbose=0
+        )(delayed(eval_comb)(idxs) for idxs in batch_idxs)
+
+        # append to CSV
+        pd.DataFrame(results).to_csv(
+            output_csv,
+            mode="a",
+            header=write_header,
+            index=False
+        )
+        write_header = False
+
+        pbar.update(len(batch_idxs))
+
+    pbar.close()
+    print(f"→ Saved {output_csv}")

@@ -10,6 +10,8 @@ from tqdm import tqdm
 # how many rows to buffer before appending to CSV
 BATCH_SIZE = 100
 
+
+
 # --- 1) load your two pandas datasets as before ---
 df_cleaveland_heart = pd.read_csv(
     "test_data/processed.cleveland.data", header=None,
@@ -35,6 +37,13 @@ datasets = {
     "heart_disease": (X_heart, y_heart),
     "zoo":           (X_zoo,    y_zoo)
 }
+
+for name, _ in datasets.items():
+        output_csv = os.path.join("output_test", f"random_forest_{name}.csv")
+        df = pd.read_csv(output_csv)
+        best_row = df.loc[df["Loss"].idxmin()]
+        print(f"Best row for {name}:")
+        print(best_row)
 
 # number of worker processes
 n_procs = max(1, multiprocessing.cpu_count() - 1)
@@ -109,3 +118,4 @@ for name, (X_df, y) in datasets.items():
 
     pbar.close()
     print(f"→ Saved {output_csv}")
+

@@ -1307,6 +1307,7 @@ pub fn init() {
 
     // let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
 
+    // INTITIAL EXPLORATION
     // // 8) Plot the final population
     // let plot_filename = "src/output/moo/nsga_2_breast_cancer.png";
     // plot_population(&final_sorted_population, plot_filename).unwrap();
@@ -1329,7 +1330,7 @@ pub fn init() {
     // println!("Histogram saved to {}", histogram_filename);
 
 
-    // // 1) Loads the breast cancer dataset
+    // BREAST CANCER DATASET
     // let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; 
     // let plot_filename = "src/output/moo/nsga_2_breast_cancer_multiple.png";
     // let csv_filename = "src/output/moo/nsga_2_breast_cancer_summary.csv";
@@ -1356,7 +1357,7 @@ pub fn init() {
     // plot_histogram(&all_best_cancer, "src/output/moo/nsga_2_breast_cancer_histogram.png").unwrap();
     // let _1 = save_run_metrics_to_csv(&all_best_cancer, csv_filename);
 
-    // // 2) Loads the wine quality dataset
+    // WINE QUALITY DATASET
     // let file_path = "XGB-Feature-Selection/output/wine_quality_combined"; 
     // let plot_filename = "src/output/moo/nsga_2_wine_combined_multiple.png";
     // let csv_filename = "src/output/moo/nsga_2_wine_combined_summary.csv";
@@ -1384,7 +1385,7 @@ pub fn init() {
     // let _2 = save_run_metrics_to_csv(&all_best_wine, csv_filename);
 
 
-    // // 3) Loads the breast cancer dataset
+    // TITANIC DATASET
     // let file_path = "XGB-Feature-Selection/output/titanic"; 
     // let plot_filename = "src/output/moo/nsga_2_titanic_multiple.png";
     // let csv_filename = "src/output/moo/nsga_2_titanic_summary.csv";
@@ -1412,34 +1413,35 @@ pub fn init() {
     // plot_histogram(&all_best_titanic, "src/output/moo/nsga_2_titanic_histogram.png").unwrap();
     // let _3 = save_run_metrics_to_csv(&all_best_titanic, csv_filename);
 
-    //     // 1) Loads the breast cancer dataset  CLEVELAND
-    // let file_path = "XGB-Feature-Selection/output_test/random_forest_heart_disease.csv"; 
-    // let plot_filename = "src/output/moo/nsga_2_cleveland_heart_disease_multiple.png";
-    // let csv_filename = "src/output/moo/nsga_2_cleveland_heart_disease_summary.csv";
-    // gene_length = 13;
+    // CLEVELAND HEART DISEASE DATASET
+    let file_path = "XGB-Feature-Selection/output_test/random_forest_heart_disease.csv"; 
+    let plot_filename = "src/output/moo/nsga_2_cleveland_heart_disease_multiple.png";
+    let csv_filename = "src/output/moo/nsga_2_cleveland_heart_disease_summary.csv";
+    gene_length = 13;
 
-    // // Starts a timer before the exec
-    // let mut start_time = Instant::now();
+    // Starts a timer before the exec
+    let mut start_time = Instant::now();
 
-    // let all_best_cleveland = execute_run_n_times(
-    //     n_times, 
-    //     population_size, 
-    //     generations, 
-    //     generations_to_print, 
-    //     gene_length, 
-    //     file_path,
-    //     false,
-    //     true
-    // );
-    // // Ends the timer after the exec
-    // let mut elapsed_time = start_time.elapsed();
-    // println!("Elapsed time for the Breast Cancer dataset: {:?}", elapsed_time);
+    let all_best_cleveland = execute_run_n_times(
+        n_times, 
+        population_size, 
+        generations, 
+        generations_to_print, 
+        gene_length, 
+        file_path,
+        false,
+        true
+    );
+    // Ends the timer after the exec
+    let mut elapsed_time = start_time.elapsed();
+    println!("Elapsed time for the Heart Disease dataset: {:?}", elapsed_time);
     
-    // plot_best_pareto_overview(&all_best_cleveland, plot_filename, "cleveland_heart_diseaser").unwrap();
-    // plot_histogram(&all_best_cleveland, "src/output/moo/nsga_2_cleveland_heart_disease_histogram.png").unwrap();
-    // let _1 = save_run_metrics_to_csv(&all_best_cleveland, csv_filename);
+    plot_best_pareto_overview(&all_best_cleveland, plot_filename, "cleveland_heart_diseaser").unwrap();
+    plot_histogram(&all_best_cleveland, "src/output/moo/nsga_2_cleveland_heart_disease_histogram.png").unwrap();
+    let _1 = save_run_metrics_to_csv(&all_best_cleveland, csv_filename);
 
 
+    // ZOO DATASET
     let file_path = "XGB-Feature-Selection/output_test/random_forest_zoo.csv"; 
     let plot_filename = "src/output/moo/nsga_2_zoo_multiple.png";
     let csv_filename = "src/output/moo/nsga_2_zoo_summary.csv";

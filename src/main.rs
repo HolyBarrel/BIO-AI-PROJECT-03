@@ -9,6 +9,6 @@ fn main() {
     //init();
     // Call the hello function from pso.rs
     //soo::single_output_optimization(["breast_cancer_wisconsin_original", "titanic", "wine_quality_combined"]);
-    soo::multi_run_validation("breast_cancer_wisconsin_original");
+    soo::single_output_test_optimization("random_forest_zoo.csv");
 
 }

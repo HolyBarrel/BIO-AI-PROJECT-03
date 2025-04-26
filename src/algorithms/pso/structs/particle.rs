@@ -1,5 +1,14 @@
 pub use crate::structs::combination::Combination;
 
+// Particle struct and methods for Particle Swarm Optimization (PSO)
+// Represents a single candidate solution in the swarm.
+//
+// Main responsibilities:
+// - Store current position, velocity, and cost
+// - Track the best position and cost found by this particle
+// - Update its velocity and position based on PSO equations
+// - Evaluate and update its cost (fitness)
+
 #[derive(Debug, Clone)]
 pub struct Particle {
     pub position: Vec<bool>, // Current position of the particle
@@ -28,9 +37,9 @@ impl Particle {
         }
     }
 
-    /// Updates velocity of a Particle
+    /// Updates velocity and position of the particle using PSO update rules
     /// 
-    /// global_best_position: Global best position
+    /// global_best_position: Global or neighborhood best position
     /// w: Inertia weight
     /// c1: Cognitive weight
     /// c2: Social weight 
@@ -58,11 +67,10 @@ impl Particle {
         }
     }
 
-
-    /// Estimates fitness of a Particle
+    /// Estimates fitness (cost) of the particle and updates best position/cost if improved
     /// 
-    /// epsilon: represents the weight of the penalty for the number of features used
-    /// combinations: lookup table for the possible combinations and their costs
+    /// epsilon: Penalty weight for number of features used
+    /// combinations: Lookup table for possible combinations and their costs
     pub fn update_cost(&mut self, epsilon: f64, combinations: &Vec<Combination>) {
         let x = self.position.iter().map(|&x| x as i32 as f64).collect::<Vec<f64>>();
         

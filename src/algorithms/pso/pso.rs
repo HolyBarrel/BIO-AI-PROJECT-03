@@ -1,3 +1,12 @@
+// PSO module entry point
+// Provides the main function to initialize and run the Particle Swarm Optimization algorithm on a dataset.
+//
+// Main responsibilities:
+// - Read dataset and prepare combinations
+// - Set PSO hyperparameters
+// - Run PSO in both global and k-nearest neighbor modes
+// - Print summary statistics for each mode
+
 pub use crate::algorithms::pso::structs::swarm::Swarm;
 pub use crate::algorithms::pso::structs::pso_mode::UpdateMode;
 pub use crate::utils::read_data::read_data;

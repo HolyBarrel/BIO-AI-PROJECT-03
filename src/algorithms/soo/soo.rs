@@ -2,13 +2,14 @@
 use std::path;
 
 use rand::Rng;
-use crate::{structs::combination::Combination, utils::read_data::read_data};
+use crate::{structs::combination::Combination, utils::read_data::{read_data, read_test_data}};
 use plotters::prelude::*;
 const POPULATION_SIZE: usize = 100;
 const MAX_GENERATIONS: usize = 1000;
 const TOURNAMENT_SIZE: usize = 3;
 const W : f64 = 0.5;
 const MAX_TIME : f64 = 1.0;
+const PENALTY : f64 = 1.0/64.0;
 
 /// Generates a population of candidate solutions represented as vectors of booleans.
 ///
@@ -64,6 +65,20 @@ pub fn cost_function(combinations: &Vec<Combination>, solution: &Vec<bool>, larg
     return cost;
 }
 
+
+pub fn cost_function_test(combinations: &Vec<Combination>, solution: &Vec<bool>, penalty: f64) -> f64 {
+    let loss = get_loss(combinations, solution);
+    if loss.is_infinite() {
+        return f64::MAX;
+    }
+    let mut feature_count = 0;
+    for feature in solution {
+        if *feature {
+            feature_count += 1;
+        }
+    }
+    return loss + penalty * feature_count as f64;
+}
 
 /// Selects a candidate solution from the population using tournament selection.
 /// '
@@ -208,10 +223,10 @@ pub fn genetic_algorithm(combinations: &Vec<Combination>) -> (Combination, f64, 
     let mut population = generate_population(n);
     let mut costs = Vec::new();
     let mut best_solution: Combination = Combination { combination: population[0].clone(), loss: get_loss(&combinations, &population[0]) };
-    let mut best_cost = cost_function(&combinations, &best_solution.combination, largest_loss, W);
+    let mut best_cost = cost_function_test(&combinations, &best_solution.combination, PENALTY);
 
     for solution in &population{
-        let cost = cost_function(&combinations, solution, largest_loss, W);
+        let cost = cost_function_test(&combinations, solution, PENALTY);
         if cost < best_cost {
             best_solution.combination = solution.clone();
             best_solution.loss = get_loss(&combinations, solution);
@@ -232,13 +247,13 @@ pub fn genetic_algorithm(combinations: &Vec<Combination>) -> (Combination, f64, 
             let distance1 = hamming_distance(&parent1, &child1);
             let distance2 = hamming_distance(&parent2, &child2);
             if distance1 < distance2 {
-                if cost_function(&combinations, &child1, largest_loss,W) < cost_function(&combinations, &parent1, largest_loss,W) {
+                if cost_function_test(&combinations, &child1, PENALTY) < cost_function_test(&combinations, &parent1, PENALTY) {
                     new_population.push(child1);
                 } else {
                     new_population.push(parent1);
                 }
             } else {
-                if cost_function(&combinations, &child2, largest_loss, W) < cost_function(&combinations, &parent2, largest_loss, W) {
+                if cost_function_test(&combinations, &child2,  PENALTY) < cost_function_test(&combinations, &parent2, PENALTY) {
                     new_population.push(child2);
                 } else {
                     new_population.push(parent2);
@@ -249,7 +264,7 @@ pub fn genetic_algorithm(combinations: &Vec<Combination>) -> (Combination, f64, 
         population = new_population;
 
         for solution in &population{
-            let cost = cost_function(&combinations, solution, largest_loss, W);
+            let cost = cost_function_test(&combinations, solution, PENALTY);
             if cost < best_cost {
                 best_solution.combination = solution.clone();
                 best_solution.loss = get_loss(&combinations, solution);
@@ -257,6 +272,10 @@ pub fn genetic_algorithm(combinations: &Vec<Combination>) -> (Combination, f64, 
             }
         }
         costs.push((best_cost,best_solution.loss));
+
+        if gen % 10 == 0 {
+            println!("Generation: {}, Best Cost: {}", gen, best_cost);
+        }
     }
 
     println!("Final Best Cost: {}", best_cost);
@@ -564,6 +583,12 @@ pub(crate) fn single_output_optimization(path_vec: [&str; 3]) {
         plot_costs_and_loss(&costs, &output_path);
     }
 
+}
+
+pub (crate) fn single_output_test_optimization(path: &str){
+    let combinations = read_test_data(&format!("XGB-Feature-Selection/output_test/{}", path)).unwrap();
+        let (best_solution, best_cost, costs) = genetic_algorithm(&combinations);
+        println!("Best Solution: {:?}, Best Cost: {}", best_solution.combination, best_cost);
 }
 
 

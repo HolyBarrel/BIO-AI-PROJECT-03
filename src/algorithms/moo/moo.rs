@@ -448,7 +448,7 @@ pub fn enforce_valid_combination(individual: &mut MooCombination) {
 /// For each of `population.len()` slots:
 /// 1. Select two parents via `binary_tournament_selection`.
 /// 2. Perform `single_point_crossover`.
-/// 3. Mutate the child with probability `mutation_probability`.
+/// 3. Mutate the child
 /// 4. Update its `loss` with `set_individual_loss`.
 ///
 /// # Parameters
@@ -470,11 +470,8 @@ pub fn generate_offspring_population(population: &[MooCombination], mutation_pro
         let parent2 = binary_tournament_selection(population);
         // Single-point crossover
         let mut child = single_point_crossover(&parent1, &parent2, data);
-        // Mutate the child individual with the given mutation probability
-        let mut rng = rand::rng();
-        if rng.random::<f64>() < mutation_probability {
-            bit_flip_mutation(&mut child, mutation_probability);
-        }
+        // Mutate the child individual 
+        bit_flip_mutation(&mut child, mutation_probability);
         set_individual_loss(&mut child, data); 
         offspring_population.push(child);
     }
@@ -783,7 +780,7 @@ where
     F: FnMut(usize, Instant) -> bool,
 {
     // Load dataset and initialize population.
-    let lookup_table = read_data::read_data(file_path).unwrap();
+    let lookup_table = read_data::read_test_data(file_path).unwrap();
     let mut population = init_population(gene_length, population_size, &lookup_table);
 
     // Initial nondominated sort and assign crowding distances.
@@ -933,7 +930,7 @@ pub fn execute_run_n_times(
     for _ in 0..n_times {
         let mut best_from_run: Vec<MooCombination> = Vec::new();
         if timed {
-            best_from_run = run_moo_algorithm_time(file_path, population_size, 1, generations_to_print, gene_length, print);
+            best_from_run = run_moo_algorithm_time(file_path, population_size, 10, generations_to_print, gene_length, print);
         }
         else {
             best_from_run = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length, print);
@@ -1306,7 +1303,7 @@ pub fn init() {
     let generations = 1000; // Number of generations to run
     let generations_to_print = 100; // Print every x generations
     let mut gene_length = 9; // Number of features (columns) in the dataset
-    let n_times = 100;
+    let n_times = 10;
 
     // let final_sorted_population = run_moo_algorithm(file_path, population_size, generations, generations_to_print, gene_length);
 
@@ -1332,16 +1329,126 @@ pub fn init() {
     // println!("Histogram saved to {}", histogram_filename);
 
 
-    // 1) Loads the breast cancer dataset
-    let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; 
-    let plot_filename = "src/output/moo/nsga_2_breast_cancer_multiple.png";
-    let csv_filename = "src/output/moo/nsga_2_breast_cancer_summary.csv";
-    gene_length = 9;
+    // // 1) Loads the breast cancer dataset
+    // let file_path = "XGB-Feature-Selection/output/breast_cancer_wisconsin_original"; 
+    // let plot_filename = "src/output/moo/nsga_2_breast_cancer_multiple.png";
+    // let csv_filename = "src/output/moo/nsga_2_breast_cancer_summary.csv";
+    // gene_length = 9;
+
+    // // Starts a timer before the exec
+    // let mut start_time = Instant::now();
+
+    // let all_best_cancer = execute_run_n_times(
+    //     n_times, 
+    //     population_size, 
+    //     generations, 
+    //     generations_to_print, 
+    //     gene_length, 
+    //     file_path,
+    //     false,
+    //     true
+    // );
+    // // Ends the timer after the exec
+    // let mut elapsed_time = start_time.elapsed();
+    // println!("Elapsed time for the Breast Cancer dataset: {:?}", elapsed_time);
+
+    // plot_best_pareto_overview(&all_best_cancer, plot_filename, "Breast Cancer").unwrap();
+    // plot_histogram(&all_best_cancer, "src/output/moo/nsga_2_breast_cancer_histogram.png").unwrap();
+    // let _1 = save_run_metrics_to_csv(&all_best_cancer, csv_filename);
+
+    // // 2) Loads the wine quality dataset
+    // let file_path = "XGB-Feature-Selection/output/wine_quality_combined"; 
+    // let plot_filename = "src/output/moo/nsga_2_wine_combined_multiple.png";
+    // let csv_filename = "src/output/moo/nsga_2_wine_combined_summary.csv";
+    // gene_length = 11;
+
+    // // Reset the timer before the exec
+    // start_time = Instant::now();
+
+    // let all_best_wine = execute_run_n_times(
+    //     n_times, 
+    //     population_size, 
+    //     generations, 
+    //     generations_to_print, 
+    //     gene_length, 
+    //     file_path,
+    //     false,
+    //     true
+    // );
+    // // Ends the timer after the exec
+    // elapsed_time = start_time.elapsed();
+    // println!("Elapsed time for the Wine dataset: {:?}", elapsed_time);
+
+    // plot_best_pareto_overview(&all_best_wine, plot_filename, "Wine").unwrap();
+    // plot_histogram(&all_best_wine, "src/output/moo/nsga_2_wine_combined_histogram.png").unwrap();
+    // let _2 = save_run_metrics_to_csv(&all_best_wine, csv_filename);
+
+
+    // // 3) Loads the breast cancer dataset
+    // let file_path = "XGB-Feature-Selection/output/titanic"; 
+    // let plot_filename = "src/output/moo/nsga_2_titanic_multiple.png";
+    // let csv_filename = "src/output/moo/nsga_2_titanic_summary.csv";
+    // gene_length = 8;
+
+    // // Reset the timer before the exec
+    // start_time = Instant::now();
+
+    // let all_best_titanic = execute_run_n_times(
+    //     n_times, 
+    //     population_size, 
+    //     generations, 
+    //     generations_to_print, 
+    //     gene_length, 
+    //     file_path,
+    //     false,
+    //     true
+    // );
+
+    // // Ends the timer after the exec
+    // elapsed_time = start_time.elapsed();
+    // println!("Elapsed time for the Titanic dataset: {:?}", elapsed_time);
+
+    // plot_best_pareto_overview(&all_best_titanic, plot_filename, "Titanic").unwrap();
+    // plot_histogram(&all_best_titanic, "src/output/moo/nsga_2_titanic_histogram.png").unwrap();
+    // let _3 = save_run_metrics_to_csv(&all_best_titanic, csv_filename);
+
+    //     // 1) Loads the breast cancer dataset  CLEVELAND
+    // let file_path = "XGB-Feature-Selection/output_test/random_forest_heart_disease.csv"; 
+    // let plot_filename = "src/output/moo/nsga_2_cleveland_heart_disease_multiple.png";
+    // let csv_filename = "src/output/moo/nsga_2_cleveland_heart_disease_summary.csv";
+    // gene_length = 13;
+
+    // // Starts a timer before the exec
+    // let mut start_time = Instant::now();
+
+    // let all_best_cleveland = execute_run_n_times(
+    //     n_times, 
+    //     population_size, 
+    //     generations, 
+    //     generations_to_print, 
+    //     gene_length, 
+    //     file_path,
+    //     false,
+    //     true
+    // );
+    // // Ends the timer after the exec
+    // let mut elapsed_time = start_time.elapsed();
+    // println!("Elapsed time for the Breast Cancer dataset: {:?}", elapsed_time);
+    
+    // plot_best_pareto_overview(&all_best_cleveland, plot_filename, "cleveland_heart_diseaser").unwrap();
+    // plot_histogram(&all_best_cleveland, "src/output/moo/nsga_2_cleveland_heart_disease_histogram.png").unwrap();
+    // let _1 = save_run_metrics_to_csv(&all_best_cleveland, csv_filename);
+
+
+    let file_path = "XGB-Feature-Selection/output_test/random_forest_zoo.csv"; 
+    let plot_filename = "src/output/moo/nsga_2_zoo_multiple.png";
+    let csv_filename = "src/output/moo/nsga_2_zoo_summary.csv";
+    gene_length = 16;
 
     // Starts a timer before the exec
     let mut start_time = Instant::now();
 
-    let all_best_cancer = execute_run_n_times(
+    let all_best_zoo = execute_run_n_times(
         n_times, 
         population_size, 
         generations, 
@@ -1353,66 +1460,10 @@ pub fn init() {
     );
     // Ends the timer after the exec
     let mut elapsed_time = start_time.elapsed();
-    println!("Elapsed time for the Breast Cancer dataset: {:?}", elapsed_time);
-
-    plot_best_pareto_overview(&all_best_cancer, plot_filename, "Breast Cancer").unwrap();
-    plot_histogram(&all_best_cancer, "src/output/moo/nsga_2_breast_cancer_histogram.png").unwrap();
-    let _1 = save_run_metrics_to_csv(&all_best_cancer, csv_filename);
-
-    // 2) Loads the wine quality dataset
-    let file_path = "XGB-Feature-Selection/output/wine_quality_combined"; 
-    let plot_filename = "src/output/moo/nsga_2_wine_combined_multiple.png";
-    let csv_filename = "src/output/moo/nsga_2_wine_combined_summary.csv";
-    gene_length = 11;
-
-    // Reset the timer before the exec
-    start_time = Instant::now();
-
-    let all_best_wine = execute_run_n_times(
-        n_times, 
-        population_size, 
-        generations, 
-        generations_to_print, 
-        gene_length, 
-        file_path,
-        false,
-        true
-    );
-    // Ends the timer after the exec
-    elapsed_time = start_time.elapsed();
-    println!("Elapsed time for the Wine dataset: {:?}", elapsed_time);
-
-    plot_best_pareto_overview(&all_best_wine, plot_filename, "Wine").unwrap();
-    plot_histogram(&all_best_wine, "src/output/moo/nsga_2_wine_combined_histogram.png").unwrap();
-    let _2 = save_run_metrics_to_csv(&all_best_wine, csv_filename);
-
-
-    // 3) Loads the breast cancer dataset
-    let file_path = "XGB-Feature-Selection/output/titanic"; 
-    let plot_filename = "src/output/moo/nsga_2_titanic_multiple.png";
-    let csv_filename = "src/output/moo/nsga_2_titanic_summary.csv";
-    gene_length = 8;
-
-    // Reset the timer before the exec
-    start_time = Instant::now();
-
-    let all_best_titanic = execute_run_n_times(
-        n_times, 
-        population_size, 
-        generations, 
-        generations_to_print, 
-        gene_length, 
-        file_path,
-        false,
-        true
-    );
-
-    // Ends the timer after the exec
-    elapsed_time = start_time.elapsed();
-    println!("Elapsed time for the Titanic dataset: {:?}", elapsed_time);
-
-    plot_best_pareto_overview(&all_best_titanic, plot_filename, "Titanic").unwrap();
-    plot_histogram(&all_best_titanic, "src/output/moo/nsga_2_titanic_histogram.png").unwrap();
-    let _3 = save_run_metrics_to_csv(&all_best_titanic, csv_filename);
+    println!("Elapsed time for the Zoo dataset: {:?}", elapsed_time);
+    
+    plot_best_pareto_overview(&all_best_zoo, plot_filename, "zoo").unwrap();
+    plot_histogram(&all_best_zoo, "src/output/moo/nsga_2_zoo_histogram.png").unwrap();
+    let _1 = save_run_metrics_to_csv(&all_best_zoo, csv_filename);
 
 }

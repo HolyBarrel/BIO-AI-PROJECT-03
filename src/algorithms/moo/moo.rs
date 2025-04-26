@@ -26,8 +26,19 @@ impl From<Combination> for MooCombination {
     }
 }
 
-/// Creates a single MooCombination, either from an existing Combination in `data`
-/// or as a brand new one with random bits.
+/// Generates a single `MooCombination` by randomly activating features.
+///
+/// If the generated bitstring matches an existing entry in the data, that entry (with its loss) is reused.
+/// Otherwise, a new individual is created with zero loss, rank -1, and crowding distance equal to zero.
+///
+/// # Parameters
+///
+/// * `gene_length` - The total number of features (bits) in the individual.
+/// * `data` - A lookup table of existing Combinations (with precomputed losses).
+///
+/// # Returns
+///
+/// A new `MooCombination` with a random selection of at least one active feature.
 pub fn create_individual(gene_length: usize, data: &Vec<Combination>) -> MooCombination {
     let mut rng = rand::rng();
 
@@ -58,6 +69,21 @@ pub fn create_individual(gene_length: usize, data: &Vec<Combination>) -> MooComb
     }
 }
 
+/// Generates an offspring by single-point crossover between two parents.
+///
+/// The child inherits bits from `parent1` up to `crossover_point`, and from `parent2` after that.
+/// If the resulting bitstring matches an entry in `data`, that individual is returned (with its loss).
+/// Otherwise, a new `MooCombination` is created with default metadata.
+///
+/// # Parameters
+///
+/// * `parent1` – The first parent solution.
+/// * `parent2` – The second parent solution.
+/// * `data` – A lookup table of existing `Combination`s.
+///
+/// # Returns
+///
+/// A new `MooCombination` representing the crossover child.
 pub fn single_point_crossover(parent1: &MooCombination, parent2: &MooCombination, data: &Vec<Combination>) -> MooCombination {
     let mut rng = rand::rng();
     let gene_length = parent1.combination.len();
@@ -86,7 +112,15 @@ pub fn single_point_crossover(parent1: &MooCombination, parent2: &MooCombination
     }
 }
 
-/// Updates the `loss` in a MooCombination by looking it up in `lookup_table`.
+/// Updates an individual’s `loss` by checking the individual's bitstring against the `lookup_table`.
+///
+/// If the bitstring is empty (no active features), the loss is set to `infinity` as a penalty.
+/// Otherwise, the table is searched for a matching `Combination` and its `loss` is assigned.
+///
+/// # Parameters
+///
+/// * `individual` – The `MooCombination` whose `loss` field will be modified.
+/// * `lookup_table` – A vector of `Combination`s with precomputed losses.
 pub fn set_individual_loss(individual: &mut MooCombination, lookup_table: &Vec<Combination>) {
     // Penalize the empty feature set.
     if individual.combination.iter().all(|&b| !b) {
@@ -105,7 +139,19 @@ pub fn set_individual_loss(individual: &mut MooCombination, lookup_table: &Vec<C
 }
 
 
-/// Helper function to get fitness (activated_columns, loss) from a MooCombination
+/// Retrieves the individual's fitness tuple `(num_active[features], loss)`.
+///
+/// If no features are active, `num_active` is set to `usize::MAX` to deprioritize infeasible solutions.
+///
+/// # Parameters
+///
+/// * `individual` – The `MooCombination` to evaluate.
+///
+/// # Returns
+///
+/// A tuple where:
+/// - `usize` = number of active features (or `usize::MAX` if zero),
+/// - `f64` = the individual’s loss.
 pub fn get_fitness(individual: &MooCombination) -> (usize, f64) {
     let activated_columns = individual.combination.iter().filter(|&&b| b).count();
     if activated_columns == 0 {
@@ -116,7 +162,19 @@ pub fn get_fitness(individual: &MooCombination) -> (usize, f64) {
 }
 
 
-/// Initializes a population of MooCombination.
+/// Initializes a population of random `MooCombination`s.
+///
+/// Each individual is generated via `create_individual`, ensuring at least one feature is active.
+///
+/// # Parameters
+///
+/// * `gene_length` – Number of features per individual.
+/// * `population_size` – Desired number of individuals in the population.
+/// * `lookup_table` – Precomputed `Combination`s for loss lookup.
+///
+/// # Returns
+///
+/// A vector of `population_size` newly created `MooCombination`s.
 pub fn init_population(gene_length: usize, population_size: usize, lookup_table: &Vec<Combination>) -> Vec<MooCombination> {
     let mut population: Vec<MooCombination> = Vec::with_capacity(population_size);
 
@@ -127,7 +185,15 @@ pub fn init_population(gene_length: usize, population_size: usize, lookup_table:
     population
 }
 
-/// Bit-flip mutation
+/// Applies bit-flip mutation to a single individual.
+///
+/// Each bit has a chance `mutation_probability` to flip. After mutation, at least one feature must be active.
+/// This is ensured via `enforce_valid_combination`.
+///
+/// # Parameters
+///
+/// * `individual` – The individual to mutate in place.
+/// * `mutation_probability` – Probability of flipping each bit.
 pub fn bit_flip_mutation(individual: &mut MooCombination, mutation_probability: f64) {
     let mut rng = rand::rng();
     let gene_length = individual.combination.len();
@@ -142,13 +208,19 @@ pub fn bit_flip_mutation(individual: &mut MooCombination, mutation_probability: 
     enforce_valid_combination(individual);
 }
 
-/// Binary tournament selection using rank and crowding_distance from MooCombination.
-/// - Lower `rank` is better (i.e., front 0 is better than front 1).
-/// - If both have the same `rank`, the one with higher `crowding_distance` is better.
+/// Selects one parent via binary tournament comparing `(rank, crowding_distance)`.
 ///
-/// # Arguments
-/// * `population` - A slice of `MooCombination` where each individual
-///                  has `rank` and `crowding_distance` already assigned.
+/// Two individuals are chosen at random, where:
+/// - Lower `rank` wins.
+/// - If ranks tie, higher `crowding_distance` wins.
+///
+/// # Parameters
+///
+/// * `population` – Slice of `MooCombination`s with assigned `rank` and `crowding_distance`.
+///
+/// # Returns
+///
+/// A cloned `MooCombination` of the tournament winner.
 pub fn binary_tournament_selection(population: &[MooCombination]) -> MooCombination {
     let mut rng = rand::rng();
 
@@ -174,12 +246,16 @@ pub fn binary_tournament_selection(population: &[MooCombination]) -> MooCombinat
     }
 }
 
-/// Assigns crowding distance for one objective (`obj_index`) across all individuals.
+/// Updates `crowding_distance` along one normalized objective.
 ///
-/// - `obj_index = 0` -> uses the first objective (normalized_fitnesses[i].0).
-/// - `obj_index = 1` -> uses the second objective (normalized_fitnesses[i].1).
-/// - Boundary individuals get `crowding_distance = ∞` for that objective.
-/// - Interior individuals add the difference between neighbors in sorted order.
+/// Sorts individuals by `normalized_fitnesses[..].{0,1}` (per `obj_index`),
+/// sets ∞ to the min/max, and adds neighbor gaps to interior points.
+///
+/// # Arguments
+///
+/// * `obj_index` – 0 for f₁, 1 for f₂.
+/// * `normalized_fitnesses` – slice of (norm_f1, norm_f2).
+/// * `population` – mutable slice of `MooCombination` to update.
 fn assign_crowding_distance_for_objective(
     obj_index: usize,
     normalized_fitnesses: &[(f64, f64)],
@@ -203,8 +279,6 @@ fn assign_crowding_distance_for_objective(
         val_i.partial_cmp(&val_j).unwrap()
     });
 
-    // If there's fewer than 2 individuals, just return
-    // (no interior points to compare).
     if population.len() < 2 {
         return;
     }
@@ -243,8 +317,14 @@ fn assign_crowding_distance_for_objective(
     }
 }
 
-/// Sorts population by rank, then for each distinct rank,
-/// calls `crowding_distance` on that sub-slice.
+/// Assigns crowding distances to each individual, grouped by `rank`.
+///
+/// 1. Sorts the entire population by ascending `rank`.
+/// 2. For each front (equal `rank`), calls `crowding_distance` on that slice.
+///
+/// # Parameters
+///
+/// * `population` – Mutable slice of `MooCombination` (with `rank` already assigned).
 pub fn assign_crowding_distance_all(population: &mut [MooCombination]) { 
     // Sort population by rank so that rank=0 are first, then rank=1, etc.
     population.sort_by_key(|ind| ind.rank);
@@ -269,17 +349,19 @@ pub fn assign_crowding_distance_all(population: &mut [MooCombination]) {
     }
 }
 
-/// Computes and stores the crowding distance in each `MooCombination` of `population`.
+/// Computes and writes the crowding distance for a single Pareto front of the population.
 ///
 /// Steps:
-///  1) Compute (f1, f2) for each individual.
-///  2) Find min and max for each objective.
-///  3) Normalize f1 and f2 for each individual.
-///  4) Reset `crowding_distance` to 0 for each individual.
-///  5) Call `assign_crowding_distance_for_objective` for both objectives.
+/// 1. Compute `(f1, f2)` from `get_fitness`.
+/// 2. Normalize each objective over the front’s min/max.
+/// 3. Reset all `crowding_distance = 0.0`.
+/// 4. For each objective:
+///    - Mark boundary individuals as `∞`.
+///    - For interior points, add neighbor differences.
 ///
-/// Boundary individuals become ∞ for each objective. Interior individuals get
-/// an accumulated difference.
+/// # Parameters
+///
+/// * `population_front` – Mutable slice of one Pareto front.
 pub fn crowding_distance(population_front: &mut [MooCombination]) {
     let pop_size = population_front.len();
     if pop_size == 0 {
@@ -346,6 +428,13 @@ pub fn crowding_distance(population_front: &mut [MooCombination]) {
     assign_crowding_distance_for_objective(1, &normalized_fitnesses, population_front);
 }
 
+/// Ensures an individual has at least one active feature.
+///
+/// If all bits are false, one random bit is set to true.
+///
+/// # Parameters
+///
+/// * `individual` – The `MooCombination` to correct in place.
 pub fn enforce_valid_combination(individual: &mut MooCombination) {
     // Ensure that at least one feature is selected.
     if individual.combination.iter().all(|&b| !b) {
@@ -354,6 +443,23 @@ pub fn enforce_valid_combination(individual: &mut MooCombination) {
     }
 }
 
+/// Creates a new generation via selection, crossover, and mutation.
+///
+/// For each of `population.len()` slots:
+/// 1. Select two parents via `binary_tournament_selection`.
+/// 2. Perform `single_point_crossover`.
+/// 3. Mutate the child with probability `mutation_probability`.
+/// 4. Update its `loss` with `set_individual_loss`.
+///
+/// # Parameters
+///
+/// * `population` – Parent population slice.
+/// * `mutation_probability` – Mutation rate per offspring.
+/// * `data` – Lookup table for loss assignment.
+///
+/// # Returns
+///
+/// A vector of offspring `MooCombination`s of the same size as `population`.
 pub fn generate_offspring_population(population: &[MooCombination], mutation_probability: f64, data: &Vec<Combination>) -> Vec<MooCombination> {
     let mut offspring_population = Vec::new();
     let population_size = population.len();
@@ -376,9 +482,20 @@ pub fn generate_offspring_population(population: &[MooCombination], mutation_pro
     offspring_population
 }
 
-/// Performs fast nondominated sorting on `population` and assigns each individual's `rank`
-/// according to the front it belongs to. Returns a flattened Vec<MooCombination> where
-/// `rank = 0` means the first (best) front, `rank = 1` means the second front, etc.
+/// Performs NSGA-II’s fast nondominated sort and assigns each individual computed `rank`.
+///
+/// 1. Compute fitness tuples for all individuals.
+/// 2. Build domination counts and dominated sets via pairwise comparisons.
+/// 3. Extract Pareto fronts iteratively.
+/// 4. Write `rank = front_index` back into each `MooCombination`.
+///
+/// # Parameters
+///
+/// * `population` – Vector of `MooCombination` to sort (cloned internally).
+///
+/// # Returns
+///
+/// The input population with updated `rank` fields, flattened in original order.
 pub fn fast_nondominated_sort(mut population: Vec<MooCombination>) -> Vec<MooCombination> {
     let population_size = population.len();
 
@@ -457,6 +574,16 @@ pub fn fast_nondominated_sort(mut population: Vec<MooCombination>) -> Vec<MooCom
     population
 }
 
+/// Concatenates parent and offspring arrays into one super‐population.
+///
+/// # Parameters
+///
+/// * `parent_population` – Slice of current parents.
+/// * `offspring_population` – Slice of newly generated offspring.
+///
+/// # Returns
+///
+/// A `Vec<MooCombination>` containing all parents then offspring.
 pub fn merge_populations(parent_population: &[MooCombination], offspring_population: &[MooCombination]) -> Vec<MooCombination> {
     let mut merged_population = Vec::new();
     merged_population.extend_from_slice(parent_population);
@@ -464,7 +591,17 @@ pub fn merge_populations(parent_population: &[MooCombination], offspring_populat
     merged_population
 }
 
-/// Returns the fronts as a Vec of Vecs, where each inner Vec contains individuals of the same rank.
+/// Returns a Vec of Pareto fronts, each front as a Vec of `MooCombination`.
+///
+/// Internally calls `fast_nondominated_sort` to set ranks, then groups by `rank`.
+///
+/// # Parameters
+///
+/// * `population` – Slice of sorted-by-rank `MooCombination`.
+///
+/// # Returns
+///
+/// A Vec where each element is one front (Vec of individuals sharing the same `rank`).
 pub fn fast_nondominated_sort_by_front(population: &[MooCombination]) -> Vec<Vec<MooCombination>> {
     let mut pop = population.to_vec();
     pop = fast_nondominated_sort(pop); // This sets the ranks appropriately.
@@ -490,8 +627,20 @@ pub fn fast_nondominated_sort_by_front(population: &[MooCombination]) -> Vec<Vec
     fronts
 }
 
-/// Performs elitism by adding full fronts until the desired size is reached.
-/// For the last front, computes crowding distances and selects the best individuals.
+/// Applies elitism to select the next generation of size `n`.
+///
+/// 1. Retrieve fronts via `fast_nondominated_sort_by_front`.
+/// 2. Add full fronts until the next front would overflow `n`.
+/// 3. For the last partially included front, compute crowding distances
+///    and take the highest–distance individuals to fill remaining slots.
+///
+/// # Parameters
+///
+/// * `super_population` – The merged `parents+offspring`, of size `2n`.
+///
+/// # Returns
+///
+/// A vector of `n` elite individuals for the next generation.
 pub fn elitism(super_population: &[MooCombination]) -> Vec<MooCombination> {
     let next_population_size = super_population.len() / 2;
     let fronts = fast_nondominated_sort_by_front(super_population);
@@ -514,12 +663,19 @@ pub fn elitism(super_population: &[MooCombination]) -> Vec<MooCombination> {
     new_population
 }
 
-/**
- * Plots the population of individuals for the MOO algorithm.
- * Each individual is represented as a point in a 2D space, where the x-axis represents the number of active features (columns) 
- * and the y-axis represents the loss value.
- * The points are colored based on their rank in the population.
- */
+/// Plots the current population in objective space (active features and loss).
+///
+/// Each individual becomes a colored circle, with color by `rank`.
+/// Infinities (invalid solutions) are skipped.
+///
+/// # Parameters
+///
+/// * `population` – Slice of `MooCombination` to plot.
+/// * `filename` – Output PNG filepath.
+///
+/// # Errors
+///
+/// Returns an error if the drawing fails.
 pub fn plot_population(population: &[MooCombination], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Filter out individuals with infinite loss (empty feature sets).
     let valid: Vec<&MooCombination> = population.iter().filter(|ind| !ind.loss.is_infinite()).collect();
@@ -595,10 +751,26 @@ pub fn plot_population(population: &[MooCombination], filename: &str) -> Result<
     Ok(())
 }
 
-/// Generic MOO algorithm runner.
-/// It initializes the population, then iteratively evolves it until the provided termination
-/// condition (a closure that takes the current generation count and the start time) returns false.
-/// The closure can use the current generation and elapsed time to decide when to stop.
+/// Runs the NSGA-II loop under a custom termination closure.
+///
+/// 1. Load data, init population.
+/// 2. Evaluate, sort, assign distances.
+/// 3. Loop: generate offspring, merge, sort, elitism.
+/// 4. Repeat until `termination_condition(generation, start_time)` is false.
+/// 5. Return final Pareto-set (sorted+distanced).
+///
+/// # Parameters
+///
+/// * `file_path` – CSV path for the dataset.
+/// * `population_size` – Number of individuals per generation.
+/// * `gene_length` – Bitstring length (features).
+/// * `generations_to_print` – Print an update every N generations.
+/// * `print` – Whether to print logs.
+/// * `termination_condition` – Closure `(usize, Instant) -> bool`.
+///
+/// # Returns
+///
+/// Final population vector of `MooCombination`.
 fn run_moo_algorithm_generic<F>(
     file_path: &str,
     population_size: usize,
@@ -660,7 +832,22 @@ where
     final_sorted_population
 }
 
-/// Runs the MOO algorithm for a fixed number of generations.
+/// Runs the algorithm for a fixed number of generations.
+///
+/// Wraps `run_moo_algorithm_generic` with a generation-based stop.
+///
+/// # Parameters
+///
+/// * `file_path` – Dataset CSV path.
+/// * `population_size` – Number of individuals.
+/// * `generations` – Stop after this many iterations.
+/// * `generations_to_print` – Interval for logging.
+/// * `gene_length` – Number of features.
+/// * `print` – Toggle console output.
+///
+/// # Returns
+///
+/// Final sorted and distanced population.
 pub fn run_moo_algorithm(
     file_path: &str,
     population_size: usize,
@@ -679,7 +866,22 @@ pub fn run_moo_algorithm(
     )
 }
 
-/// Runs the MOO algorithm for a fixed time limit (in seconds).
+/// Runs the algorithm until a time limit (in seconds) is reached.
+///
+/// Wraps `run_moo_algorithm_generic` with a time-based stop.
+///
+/// # Parameters
+///
+/// * `file_path` – Dataset CSV path.
+/// * `population_size` – Number of individuals.
+/// * `time_limit` – Duration to run (seconds).
+/// * `generations_to_print` – Interval for logging.
+/// * `gene_length` – Number of features.
+/// * `print` – Toggle console output.
+///
+/// # Returns
+///
+/// Final sorted and distanced population.
 pub fn run_moo_algorithm_time(
     file_path: &str,
     population_size: usize,
@@ -698,6 +900,24 @@ pub fn run_moo_algorithm_time(
     )
 }
 
+/// Executes the MOO run `n_times`, concatenating all Pareto-sets.
+///
+/// Each run uses either time-based or fixed‐generation stopping as specified.
+///
+/// # Parameters
+///
+/// * `n_times` – Number of independent runs.
+/// * `population_size` – Population per run.
+/// * `generations` – Generations limit (if not timed).
+/// * `generations_to_print` – Logging interval.
+/// * `gene_length` – Number of features.
+/// * `file_path` – Dataset path.
+/// * `print` – Toggle per-run output.
+/// * `timed` – Choose time-based stopping.
+///
+/// # Returns
+///
+/// A flattened Vec of all Pareto‐optimal individuals from all runs.
 pub fn execute_run_n_times(
     n_times: usize, 
     population_size: usize,
@@ -732,6 +952,19 @@ struct RunMetric {
     combination: String,
 }
 
+/// Aggregates frequencies of unique solutions and saves to CSV.
+///
+/// Groups by `(active, loss)` keys, computes frequency & percentage,
+/// and writes rows with the comma-separated gene string.
+///
+/// # Parameters
+///
+/// * `all_best` – Slice of Pareto‐front individuals (from multiple runs).
+/// * `filename` – Output CSV filepath.
+///
+/// # Errors
+///
+/// Returns an error if file writing fails.
 pub fn save_run_metrics_to_csv(
     all_best: &[MooCombination],
     filename: &str,
@@ -787,6 +1020,21 @@ pub fn save_run_metrics_to_csv(
     Ok(())
 }
 
+/// Plots an overview of the best Pareto fronts across runs, coloring by frequency.
+///
+/// 1. Build frequency map of `(active, loss)` points.
+/// 2. Assign discrete colors based on quantiles of frequency.
+/// 3. Draw points and dynamic legend.
+///
+/// # Parameters
+///
+/// * `all_best` – Slice of Pareto‐set individuals.
+/// * `filename` – Output PNG filepath.
+/// * `plot_name` – Chart title prefix.
+///
+/// # Errors
+///
+/// Returns an error if plotting fails.
 pub fn plot_best_pareto_overview(
     all_best: &[MooCombination],
     filename: &str,
@@ -930,6 +1178,18 @@ pub fn plot_best_pareto_overview(
     Ok(())
 }
 
+/// Plots a histogram of solution frequencies by fitness tuple.
+///
+/// Groups by `(active, loss, best_rank)`, draws bars colored by `rank`.
+///
+/// # Parameters
+///
+/// * `population` – Slice of final Pareto‐set individuals.
+/// * `filename` – Output PNG filepath.
+///
+/// # Errors
+///
+/// Returns an error if plotting fails.
 pub fn plot_histogram(population: &[MooCombination], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Group individuals by the fitness tuple from get_fitness.
     // For each group, store (loss, best_rank, frequency)
@@ -1030,6 +1290,13 @@ pub fn plot_histogram(population: &[MooCombination], filename: &str) -> Result<(
     Ok(())
 }
 
+/// Example entry point showcasing three datasets (Breast Cancer, Wine, Titanic).
+///
+/// Runs `execute_run_n_times` for each, plots overviews, histograms, and CSV summaries.
+///
+/// # Panics
+///
+/// Panics if any of the plotting or file I/O operations fail.
 pub fn init() {
 
     // 1) Loads the breast cancer dataset
@@ -1147,7 +1414,5 @@ pub fn init() {
     plot_best_pareto_overview(&all_best_titanic, plot_filename, "Titanic").unwrap();
     plot_histogram(&all_best_titanic, "src/output/moo/nsga_2_titanic_histogram.png").unwrap();
     let _3 = save_run_metrics_to_csv(&all_best_titanic, csv_filename);
-
-
 
 }

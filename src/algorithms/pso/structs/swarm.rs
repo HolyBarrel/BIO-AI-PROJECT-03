@@ -1,3 +1,13 @@
+// Swarm struct and methods for Particle Swarm Optimization (PSO)
+// Manages a collection of particles, tracks the global best solution, and updates particles each iteration.
+// Supports both global and k-nearest neighbor update modes.
+//
+// Main responsibilities:
+// - Initialize and manage particles
+// - Track and update the global best solution
+// - Update particles' positions and costs
+// - Run PSO for a specified number of epochs or multiple runs for statistics
+
 use crate::algorithms::pso::structs::particle::Particle;
 pub use crate::structs::combination::Combination;
 pub use crate::algorithms::pso::structs::pso_mode::UpdateMode;
@@ -14,6 +24,7 @@ pub struct Swarm {
 }
 
 impl Swarm {
+    // Create a new Swarm with given size, particle size, and update mode
     pub fn new(size: usize, particle_size: usize, mode: UpdateMode) -> Self {
         let mut swarm = Swarm {
             particles: Vec::new(),  // Empty at first
@@ -29,6 +40,7 @@ impl Swarm {
         swarm
     }
     
+    // Initialize all particles in the swarm
     fn initialize_particles(&mut self, size: usize, particle_size: usize) {
         self.particles = (0..size).map(|_| Particle::new(particle_size)).collect::<Vec<Particle>>();
         self.best_position = vec![false; particle_size]; // Reset the best position
@@ -36,6 +48,7 @@ impl Swarm {
         self.gen_to_best = 0;       // Reset the generation count
     }
 
+    // Update the global best solution found by the swarm
     pub fn update_global_best(&mut self, epoch: usize) {
         for particle in &self.particles {
             if particle.best_cost < self.best_cost {
@@ -47,6 +60,7 @@ impl Swarm {
     }
     
 
+    // Find the best position among k nearest neighbors for a given particle
     fn find_k_nearest_best(&self, particle_index: usize, k: usize) -> Vec<bool> {
         let mut neighbors = self.particles.iter().enumerate()
             .filter(|&(i, _)| i != particle_index) 
@@ -58,7 +72,7 @@ impl Swarm {
         neighbors.into_iter().take(k).map(|(_, _, pos)| pos.clone()).next().unwrap_or_else(|| self.particles[particle_index].best_position.clone())
     }
 
-    // Update the particles in the swarm
+    // Update all particles in the swarm (position and cost)
     pub fn update_particles(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>) {
         let k_neighbor_positions = if let UpdateMode::KNeighbor(k) = self.mode {
             Some(
@@ -81,12 +95,13 @@ impl Swarm {
         }
     }
 
-    // Take a step in the swarm
+    // Perform a single PSO step: update particles and global best
     pub fn step(&mut self, epoch: usize, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>) {
         self.update_particles(w, c1, c2, epsilon, combinations);
         self.update_global_best(epoch);
     }
 
+    // Run PSO for a specified number of epochs, optionally printing progress/results
     pub fn perform_pso(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>, epochs: usize, print_performance: bool, print_result: bool) {
         for epoch in 0..epochs {
             self.step(epoch, w, c1, c2, epsilon, combinations);
@@ -103,6 +118,7 @@ impl Swarm {
         return ;
     }
 
+    // Run PSO multiple times to collect statistics (AES, MBF, runtime, best/mean solution)
     pub fn run_multiple(&mut self, w: f64, c1: f64, c2: f64, epsilon: f64, combinations: &Vec<Combination>, runs: usize, epoch_per_run: usize) {
         let mut model_solutions: Vec<Vec<bool>> = Vec::new();
         let mut model_costs: Vec<f64> = Vec::new();
